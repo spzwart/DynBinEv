@@ -2,9 +2,9 @@
 
 **DYNamical BInary EVolution**
 
-python script for binary evolution with N-body dynamics
+**Language:** python script for binary evolution with N-body dynamics
 
-version 1.e-6
+**version:** 1.e-6
 
 A collaborative effort to construct a binary population synthesis code
 in which the orbital evolution is calculated using a general-purpose
@@ -25,19 +25,19 @@ Alessandro Trani,
 and
 Long Wang
 
-#Current content are 3 scripts:
+**Current content are 3 scripts:**
 
-##dynbin_simple.py
+-dynbin_simple.py:
        Simplest form of integrating a binary without any mass loss.
-       
-##dynbin_massloss.py
+-dynbin_massloss.py:
        Simplest for of binary evolution in which the binary orbit is
        integrated with a 4th-order Hermite scheme. Stellar mass loss
        (currently constant with time) is directly incorporated into
        the N-body code via a channel.
-       
-##dynbin_massloss_bridge.py
+-dynbin_massloss_bridge.py:
        Binary evolution in which the binary orbit is
        integrated with a 4th-order Hermite scheme and the stellar mass loss
        (currently constant with time) is incorporated using the drift-operator
        in the classic bridge. 
+
+**Licence: MIT**
