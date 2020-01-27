@@ -13,26 +13,27 @@ population synthesis modeules in N-body codes by more general-purpose
 dynamics is taken care of by the N-body code.
 
 Initial discussions started on 27 January 2020 between:
-Nicola Giacobbo
-Iorio Giuliano
-Simon Portegies Zwart
-Steven Rieder
-Alessandro Trani
+Nicola Giacobbo,
+Iorio Giuliano,
+Simon Portegies Zwart,
+Steven Rieder,
+Alessandro Trani,
+and
 Long Wang
 
+**Current content are 3 scripts:**
 
-Current content are 3 scripts:
-dynbin_simple.py
-       Simplest form of integrating a binary without any mass loss.
+-dynbin_simple.py
+ -Simplest form of integrating a binary without any mass loss.
        
-dynbin_massloss.py
-       simplest for of binary evolution in which the binary orbit is
+-dynbin_massloss.py
+ -simplest for of binary evolution in which the binary orbit is
        integrated with a 4th-order Hermite scheme. Stellar mass loss
        (currently constant with time) is directly incorporated into
        the N-body code via a channel.
        
-dynbin_massloss_bridge.py
-       binary evolution in which the binary orbit is
+-dynbin_massloss_bridge.py
+ -binary evolution in which the binary orbit is
        integrated with a 4th-order Hermite scheme and the stellar mass loss
        (currently constant with time) is incorporated using the drift-operator
        in the classic bridge. 
