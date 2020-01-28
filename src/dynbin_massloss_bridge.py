@@ -9,11 +9,18 @@ from amuse.ext.orbital_elements import orbital_elements_from_binary
 from amuse.community.hermite.interface import Hermite
 
 class CodeWithMassLoss(bridge.GravityCodeInField):
-    def drift(self, tend):
-        dt = tend-self.time
+    #def drift(self, tend):
+    #    dt = tend-self.time
+    #    #dt = timestep
+    #    dmdt = mass_loss_rate(self.particles.mass)
+    #    self.particles.mass -= dmdt*dt
+    #    pass
+    def kick(self, dt):
+        kinetic_energy_before = self.particles.kinetic_energy()
         dmdt = mass_loss_rate(self.particles.mass)
         self.particles.mass -= dmdt*dt
-        pass
+        kinetic_energy_after = self.particles.kinetic_energy()
+        return kinetic_energy_after - kinetic_energy_before
 
 def mass_loss_rate(m):
     dmdt = (1.e-6 | units.MSun/units.yr) * (m/(1.0|units.MSun))**2
