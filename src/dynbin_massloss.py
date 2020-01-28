@@ -69,13 +69,17 @@ def evolve_model(end_time, double_star, stars):
     from matplotlib import pyplot
     fig, axis = pyplot.subplots(nrows=2,ncols=2, sharex=True)
     axis[0][0].scatter(t.value_in(units.yr), a.value_in(units.RSun))
-    axis[0][1].scatter(t.value_in(units.yr), m.value_in(units.MSun))
-    axis[1][1].scatter(t.value_in(units.yr), e)
     axis[0][0].set_ylabel("a [$R_\odot$]")
+
+    axis[0][1].scatter(t.value_in(units.yr), m.value_in(units.MSun))
     axis[0][1].set_ylabel("M [$M_\odot$]")
-    axis[0][0].set_ylabel("e")
+
+    axis[1][1].scatter(t.value_in(units.yr), e)
+    axis[1][1].set_ylabel("e")
+
     axis[1][1].set_xlabel("time [yr]")
     axis[1][0].set_xlabel("time [yr]")
+    pyplot.savefig("mloss.png")
     pyplot.show()
 
 def new_option_parser():
