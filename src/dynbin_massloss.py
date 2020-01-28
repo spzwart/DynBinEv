@@ -1,47 +1,13 @@
-import numpy as np
-import os
-from amuse.datamodel import Particle, Particles
+#!/usr/bin/env python3
 from amuse.units import units, constants, nbody_system
-from amuse.ext.orbital_elements import new_binary_from_orbital_elements
-from amuse.ext.orbital_elements import orbital_elements_from_binary
 from amuse.ext.orbital_elements import orbital_elements_from_binary
 from amuse.community.hermite.interface import Hermite
 
-def mass_loss_rate(m):
-    dmdt = (1.e-6 | units.MSun/units.yr) * (m/(1.0|units.MSun))**2
-    return dmdt
+from dynbin_common import (
+    make_binary_star, new_option_parser,
+    mass_loss_rate, dadt_massloss, dedt_massloss,
+)
 
-def dadt_massloss(a0, m0, dmdt):
-    dadt = a0 * ((dmdt[0]+ dmdt[1])/(m0[0]+m0[1]))
-    return dadt
-
-def dedt_massloss(e0, m0, dmdt):
-    dedt = 0 | 1/units.s
-    return dedt
-
-
-def make_binary_star(mprim, msec, semimajor_axis, eccentricity):
-    double_star = Particle()
-    double_star.is_binary = True
-    double_star.mass = mprim + msec
-    double_star.semimajor_axis = semimajor_axis
-    double_star.eccentricity = eccentricity
-
-    period = 2*np.pi*(semimajor_axis*semimajor_axis*semimajor_axis/(constants.G*double_star.mass)).sqrt()
-    print("Period =", period.as_string_in(units.yr))
-    
-    stars = new_binary_from_orbital_elements(mprim,
-                                             msec,
-                                             semimajor_axis,
-                                             eccentricity,
-                                             G=constants.G)
-    stars.is_binary = False
-    double_star.child1 = stars[0]
-    double_star.child1.name = "primary"
-    double_star.child2 = stars[1]
-    double_star.child2.name = "secondary"
-    
-    return double_star, stars
 
 def evolve_model(end_time, double_star, stars):
     time = 0 | units.yr
@@ -57,26 +23,26 @@ def evolve_model(end_time, double_star, stars):
 
     a_an = [] | units.au
     e_an = []
-    dt_an = dt/1000.
+    # dt_an = dt/1000.
     atemp = double_star.semimajor_axis
     etemp = double_star.eccentricity
     print(atemp)
 
     a = [] | units.au
-    e = [] 
+    e = []
     m = [] | units.MSun
     t = [] | units.yr
-    while time<end_time:
-        #ana_time = time
-        #ana_time_end = time + dt
-        #while ana_time < ana_time_end:
-        #    dmdt_ana = -1*mass_loss_rate(stars.mass)
-        #    print(atemp)
-        #    dadt = dadt_massloss(atemp, stars.mass, dmdt_ana)
-        #    dedt = dedt_massloss(etemp, stars.mass, dmdt_ana)
-        #    atemp = dadt*dt
-        #    etemp = dedt*dt
-        #    ana_time += dt_an
+    while time < end_time:
+        # ana_time = time
+        # ana_time_end = time + dt
+        # while ana_time < ana_time_end:
+        #     dmdt_ana = -1*mass_loss_rate(stars.mass)
+        #     print(atemp)
+        #     dadt = dadt_massloss(atemp, stars.mass, dmdt_ana)
+        #     dedt = dedt_massloss(etemp, stars.mass, dmdt_ana)
+        #     atemp = dadt*dt
+        #     etemp = dedt*dt
+        #     ana_time += dt_an
         time += dt
         gravity.evolve_model(time)
         to_stars.copy()
@@ -96,7 +62,6 @@ def evolve_model(end_time, double_star, stars):
         orbital_elements = orbital_elements_from_binary(stars,
                                                         G=constants.G)
 
-
         a.append(orbital_elements[2])
         e.append(orbital_elements[3])
         m.append(stars.mass.sum())
@@ -107,7 +72,7 @@ def evolve_model(end_time, double_star, stars):
               "m=", stars.mass.in_(units.MSun))
     gravity.stop()
     from matplotlib import pyplot
-    fig, axis = pyplot.subplots(nrows=2,ncols=2, sharex=True)
+    fig, axis = pyplot.subplots(nrows=2, ncols=2, sharex=True)
     axis[0][0].scatter(t.value_in(units.yr), a.value_in(units.RSun))
     axis[0][0].scatter(t.value_in(units.yr), a_an.value_in(units.RSun))
     axis[0][0].set_ylabel("a [$R_\odot$]")
@@ -124,28 +89,15 @@ def evolve_model(end_time, double_star, stars):
     pyplot.show()
     pyplot.savefig("mloss.png")
 
-def new_option_parser():
-    from amuse.units.optparse import OptionParser
-    result = OptionParser()
-    result.add_option("-M", unit=units.MSun, type="float",
-                      dest="mprim", default = 15|units.MSun,
-                      help="primary mass [%default]")
-    result.add_option("-m", unit=units.MSun, type="float",
-                      dest="msec", default = 8|units.MSun,
-                      help="secondary mass [%default]")
-    result.add_option("-a", unit=units.MSun, type="float",
-                      dest="semimajor_axis", default = 138|units.RSun,
-                      help="semi-major axis [%default]")
-    result.add_option("-e", type="float",
-                      dest="eccentricity", default = 0.68,
-                      help="eccentricity [%default]")
-    return result
+
+def main():
+    o, arguments = new_option_parser().parse_args()
+    double_star, stars = make_binary_star(
+        o.mprim, o.msec, o.semimajor_axis, o.eccentricity,
+    )
+    end_time = 1000.0 | units.yr
+    evolve_model(end_time, double_star, stars)
+
 
 if __name__ == "__main__":
-    o, arguments  = new_option_parser().parse_args()
-    double_star, stars = make_binary_star(o.mprim,
-                                   o.msec,
-                                   o.semimajor_axis,
-                                   o.eccentricity)
-    end_time = 1000.0|units.yr
-    evolve_model(end_time, double_star, stars)
+    main()
