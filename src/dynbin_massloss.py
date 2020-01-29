@@ -14,7 +14,7 @@ from dynbin_common import (
 
 def evolve_model(end_time, double_star, stars):
     time = 0 | units.yr
-    dt = 0.5*end_time/10000.
+    dt = 0.5*end_time/1000.
 
     converter = nbody_system.nbody_to_si(double_star.mass,
                                          double_star.semimajor_axis)
@@ -77,9 +77,10 @@ def evolve_model(end_time, double_star, stars):
     gravity.stop()
     from matplotlib import pyplot
     fig, axis = pyplot.subplots(nrows=2, ncols=2, sharex=True)
-    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.RSun))
-    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.RSun))
+    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.RSun), label="nbody")
+    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.RSun), label="analytic")
     axis[0][0].set_ylabel("a [$R_\odot$]")
+    axis[0][0].legend()
 
     axis[0][1].plot(t.value_in(units.yr), m.value_in(units.MSun))
     axis[0][1].set_ylabel("M [$M_\odot$]")

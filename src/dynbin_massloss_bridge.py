@@ -92,8 +92,8 @@ def evolve_model(end_time, double_star, stars):
     gravity.stop()
     from matplotlib import pyplot
     fig, axis = pyplot.subplots(nrows=2, ncols=2, sharex=True)
-    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.RSun))
-    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.RSun))
+    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.RSun), label="nbody")
+    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.RSun), label="analytic")
     axis[0][0].set_ylabel("a [$R_\odot$]")
 
     axis[0][1].plot(t.value_in(units.yr), m.value_in(units.MSun))
