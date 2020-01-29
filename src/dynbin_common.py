@@ -59,8 +59,8 @@ def new_option_parser():
     result.add_option("-m", unit=units.MSun, type="float",
                       dest="msec", default=15 | units.MSun,
                       help="secondary mass [%default]")
-    result.add_option("-a", unit=units.MSun, type="float",
-                      dest="semimajor_axis", default=138 | units.RSun,
+    result.add_option("-a", unit=units.RSun, type="float",
+                      dest="semimajor_axis", default=10000 | units.RSun,
                       help="semi-major axis [%default]")
     result.add_option("-e", type="float",
                       dest="eccentricity", default=0.68,
