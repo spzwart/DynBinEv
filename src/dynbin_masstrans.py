@@ -12,6 +12,68 @@ from dynbin_common import (
 )
 
 
+def dmdt_acc(dmlossdt):
+    alpha = 0.9
+    dmacc = (alpha-1)*dmlossdt
+    return dmacc[::-1]
+
+def dhdt_masstrans(mass, dmdtloss, dmdtacc, a):
+    # BSE-like
+    mtot = mass.sum()
+    hcirc = (constants.G*mtot*a).sqrt()
+    dhdt = mass[1]/mtot*(dmdtloss[0]*mass[1] - dmdtacc[1]*mass[0]) + mass[0]/mtot*(dmdtloss[1]*mass[0] - dmdtacc[0]*mass[1])
+    dhdt = dhdt/(mass[0]*mass[1])*hcirc
+    return dhdt
+
+def dadt_masstrans(a, e, mass, dmdtacc):
+    # BSE-like, masstrans only (no loss)
+    mtot = mass.sum()
+    dadt = -a*((2-e*e)/mass[1] + (1+e*e)/mtot)*dmdtacc[1]/(1-e*e)
+    dadt = dadt - a*((2-e*e)/mass[0] + (1+e*e)/mtot)*dmdtacc[0]/(1-e*e)
+    return dadt
+
+def dedt_masstrans(e, mass, dmdtacc):
+    # BSE-like
+    mtot = mass.sum()
+    dedt = -e*dmdtacc[1]*(1/mtot + 0.5/mass[1])
+    dedt = dedt -e*dmdtacc[0]*(1/mtot + 0.5/mass[0])
+    return dedt
+
+def kick_binary(stars, dt, a, e, dmdtloss, dmdtacc):
+    mtot = stars.mass.sum()
+    pos = stars[1].position - stars[0].position
+    vel = stars[1].velocity - stars[0].velocity
+
+    r = pos.length()
+    v = vel.length()
+
+    rvec = pos/r
+    h = pos.cross(vel)
+    h_mag = h.length()
+    rdot = (rvec*vel).sum() * rvec
+    rdot_mag = rdot.length()
+    rdot_vec = rdot/rdot_mag
+
+    vth = vel-rdot
+    vth_mag = vth.length()
+    vth_vec = vth/vth_mag
+
+    dhdt = dhdt_masstrans(stars.mass, dmdtloss, dmdtacc, a)
+    dadt = dadt_masstrans(a, e, stars.mass, dmdtacc)
+
+    vth_acc = dhdt/h_mag * vth_mag
+    print(vth_acc)
+
+    rdot_acc = 0.5*dadt*constants.G*mtot/(a*a) - vth_acc*vth_mag
+    rdot_acc = rdot_acc/rdot_mag
+    print(rdot_acc)
+
+    com_pos = stars.center_of_mass()
+    com_vel = stars.center_of_mass_velocity()
+
+    vth_kick = vth_acc * dt * vth_vec
+    rdot_kick = vth_acc * dt * rdot_vec
+
 def evolve_model(end_time, double_star, stars):
     time = 0 | units.yr
     dt = 0.5*end_time/1000.
@@ -51,6 +113,10 @@ def evolve_model(end_time, double_star, stars):
         to_stars.copy()
 
         dmdt = mass_loss_rate(stars.mass)
+        dmdtacc = dmdt_acc(dmdt)
+
+        orbital_elements = orbital_elements_from_binary(stars,
+                                                        G=constants.G)
 
         dadt = dadt_massloss(atemp, stars.mass, dmdt)
         dedt = dedt_massloss(etemp, stars.mass, dmdt)
@@ -60,10 +126,11 @@ def evolve_model(end_time, double_star, stars):
         a_an.append(atemp)
         e_an.append(etemp)
 
+        kick_binary(stars, dt, orbital_elements[2], orbital_elements[3], dmdt, dmdtacc)
+
         stars.mass += dmdt * dt
         from_stars.copy()
-        orbital_elements = orbital_elements_from_binary(stars,
-                                                        G=constants.G)
+
 
 
         a.append(orbital_elements[2])
