@@ -4,6 +4,7 @@ from amuse.ext.orbital_elements import new_binary_from_orbital_elements
 from amuse.ext.orbital_elements import orbital_elements_from_binary
 from amuse.ext.orbital_elements import orbital_elements_from_binary
 from amuse.community.hermite.interface import Hermite
+import numpy
 
 from dynbin_common import (
     make_binary_star, new_option_parser,
@@ -13,7 +14,7 @@ from dynbin_common import (
 
 def evolve_model(end_time, double_star, stars):
     time = 0 | units.yr
-    dt = 0.5*end_time/1000.
+    dt = 0.5*end_time/10000.
 
     converter = nbody_system.nbody_to_si(double_star.mass,
                                          double_star.semimajor_axis)
@@ -22,6 +23,17 @@ def evolve_model(end_time, double_star, stars):
     gravity.particles.add_particle(stars)
     to_stars = gravity.particles.new_channel_to(stars)
     from_stars = stars.new_channel_to(gravity.particles)
+
+    period = (
+        2*numpy.pi
+        * (
+            double_star.semimajor_axis*double_star.semimajor_axis*double_star.semimajor_axis
+            / (constants.G*double_star.mass)
+        ).sqrt()
+    )
+    print("Period =", period.as_string_in(units.yr))
+    print("Mass loss timestep =", dt)
+    print("Steps per period: = {:1.2f}".format(period/dt))
 
     a_an = [] | units.au
     e_an = []
@@ -65,21 +77,21 @@ def evolve_model(end_time, double_star, stars):
     gravity.stop()
     from matplotlib import pyplot
     fig, axis = pyplot.subplots(nrows=2, ncols=2, sharex=True)
-    axis[0][0].scatter(t.value_in(units.yr), a.value_in(units.RSun))
-    axis[0][0].scatter(t.value_in(units.yr), a_an.value_in(units.RSun))
+    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.RSun))
+    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.RSun))
     axis[0][0].set_ylabel("a [$R_\odot$]")
 
-    axis[0][1].scatter(t.value_in(units.yr), m.value_in(units.MSun))
+    axis[0][1].plot(t.value_in(units.yr), m.value_in(units.MSun))
     axis[0][1].set_ylabel("M [$M_\odot$]")
 
-    axis[1][1].scatter(t.value_in(units.yr), e)
-    axis[1][1].scatter(t.value_in(units.yr), e_an)
+    axis[1][1].plot(t.value_in(units.yr), e)
+    axis[1][1].plot(t.value_in(units.yr), e_an)
     axis[1][1].set_ylabel("e")
 
     axis[1][1].set_xlabel("time [yr]")
     axis[1][0].set_xlabel("time [yr]")
-    pyplot.show()
     pyplot.savefig("mloss.png")
+    pyplot.show()
 
 
 def main():
