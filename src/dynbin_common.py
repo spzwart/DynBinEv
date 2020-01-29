@@ -6,12 +6,13 @@ from amuse.ext.orbital_elements import new_binary_from_orbital_elements
 
 
 def mass_loss_rate(m):
-    dmdt = (1.e-6 | units.MSun/units.yr) * (m/(1.0 | units.MSun))**2
+    dmdt = -(1.e-6 | units.MSun/units.yr) * (m/(1.0 | units.MSun))**2
     return dmdt
 
 
 def dadt_massloss(a0, m0, dmdt):
-    dadt = a0 * ((dmdt[0] + dmdt[1])/(m0[0]+m0[1]))
+    # dmdt is negative for mass loss
+    dadt = a0 * -((dmdt[0] + dmdt[1])/(m0[0]+m0[1]))
     return dadt
 
 
@@ -59,8 +60,8 @@ def new_option_parser():
     result.add_option("-m", unit=units.MSun, type="float",
                       dest="msec", default=15 | units.MSun,
                       help="secondary mass [%default]")
-    result.add_option("-a", unit=units.MSun, type="float",
-                      dest="semimajor_axis", default=138 | units.RSun,
+    result.add_option("-a", unit=units.RSun, type="float",
+                      dest="semimajor_axis", default=10000 | units.RSun,
                       help="semi-major axis [%default]")
     result.add_option("-e", type="float",
                       dest="eccentricity", default=0.68,
