@@ -60,7 +60,7 @@ def evolve_model(end_time, double_star, stars):
         a_an.append(atemp)
         e_an.append(etemp)
 
-        stars.mass -= dmdt * dt
+        stars.mass += dmdt * dt
         from_stars.copy()
         orbital_elements = orbital_elements_from_binary(stars,
                                                         G=constants.G)

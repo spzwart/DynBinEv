@@ -21,7 +21,7 @@ class CodeWithMassLoss(bridge.GravityCodeInField):
     def kick(self, dt):
         kinetic_energy_before = self.particles.kinetic_energy()
         dmdt = mass_loss_rate(self.particles.mass)
-        self.particles.mass -= dmdt*dt
+        self.particles.mass += dmdt*dt
         kinetic_energy_after = self.particles.kinetic_energy()
         return kinetic_energy_after - kinetic_energy_before
 
