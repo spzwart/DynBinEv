@@ -27,9 +27,6 @@ def make_binary_star(mprim, msec, semimajor_axis, eccentricity):
     double_star.semimajor_axis = semimajor_axis
     double_star.eccentricity = eccentricity
 
-    period = 2*np.pi*(semimajor_axis*semimajor_axis*semimajor_axis/(constants.G*double_star.mass)).sqrt()
-    print("Period =", period.as_string_in(units.yr))
-    
     stars = new_binary_from_orbital_elements(mprim,
                                              msec,
                                              semimajor_axis,
@@ -50,6 +47,10 @@ def evolve_model(end_time, double_star, stars):
     converter = nbody_system.nbody_to_si(double_star.mass,
                                          double_star.semimajor_axis)
 
+    period = 2*np.pi*(double_star.semimajor_axis*double_star.semimajor_axis*double_star.semimajor_axis
+                      /(constants.G*double_star.mass)).sqrt()
+    print("Period =", period.as_string_in(units.yr))
+
     gravity = Hermite(converter)
     gravity.particles.add_particle(stars)
     to_stars = gravity.particles.new_channel_to(stars)
@@ -57,7 +58,6 @@ def evolve_model(end_time, double_star, stars):
 
     a_an = [] | units.au
     e_an = []
-    dt_an = dt/1000.
     atemp = double_star.semimajor_axis
     etemp = double_star.eccentricity
     print(atemp)
@@ -67,16 +67,6 @@ def evolve_model(end_time, double_star, stars):
     m = [] | units.MSun
     t = [] | units.yr
     while time<end_time:
-        #ana_time = time
-        #ana_time_end = time + dt
-        #while ana_time < ana_time_end:
-        #    dmdt_ana = -1*mass_loss_rate(stars.mass)
-        #    print(atemp)
-        #    dadt = dadt_massloss(atemp, stars.mass, dmdt_ana)
-        #    dedt = dedt_massloss(etemp, stars.mass, dmdt_ana)
-        #    atemp = dadt*dt
-        #    etemp = dedt*dt
-        #    ana_time += dt_an
         time += dt
         gravity.evolve_model(time)
         to_stars.copy()
@@ -85,7 +75,6 @@ def evolve_model(end_time, double_star, stars):
 
         dadt = dadt_massloss(atemp, stars.mass, dmdt)
         dedt = dedt_massloss(etemp, stars.mass, dmdt)
-
         atemp = atemp + dadt*dt
         etemp = etemp + dedt*dt
         a_an.append(atemp)
