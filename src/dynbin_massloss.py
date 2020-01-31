@@ -8,7 +8,7 @@ import numpy
 
 from dynbin_common import (
     make_binary_star, new_option_parser,
-    mass_loss_rate, dadt_massloss, dedt_massloss,
+    mass_loss_rate, dadt_masschange, dedt_masschange,
 )
 
 
@@ -52,8 +52,8 @@ def evolve_model(end_time, double_star, stars):
 
         dmdt = mass_loss_rate(stars.mass)
 
-        dadt = dadt_massloss(atemp, stars.mass, dmdt)
-        dedt = dedt_massloss(etemp, stars.mass, dmdt)
+        dadt = dadt_masschange(atemp, stars.mass, dmdt)
+        dedt = dedt_masschange(etemp, stars.mass, dmdt)
 
         atemp = atemp + dadt*dt
         etemp = etemp + dedt*dt

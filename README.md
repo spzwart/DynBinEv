@@ -1,6 +1,8 @@
 # DynBinEv
 
-**DYNamical BInary EVolution**
+## **DYNamical BInary EVolution**
+ _Make binary stellar evolution dynamical again!_
+
 
 **Language:** python script for binary evolution with N-body dynamics
 

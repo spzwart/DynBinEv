@@ -10,13 +10,13 @@ def mass_loss_rate(m):
     return dmdt
 
 
-def dadt_massloss(a0, m0, dmdt):
+def dadt_masschange(a0, m0, dmdt):
     # dmdt is negative for mass loss
     dadt = a0 * -((dmdt[0] + dmdt[1])/(m0[0]+m0[1]))
     return dadt
 
 
-def dedt_massloss(e0, m0, dmdt):
+def dedt_masschange(e0, m0, dmdt):
     dedt = 0 | 1/units.s
     return dedt
 
@@ -55,7 +55,7 @@ def new_option_parser():
     from amuse.units.optparse import OptionParser
     result = OptionParser()
     result.add_option("-M", unit=units.MSun, type="float",
-                      dest="mprim", default=15 | units.MSun,
+                      dest="mprim", default=25 | units.MSun,
                       help="primary mass [%default]")
     result.add_option("-m", unit=units.MSun, type="float",
                       dest="msec", default=15 | units.MSun,
