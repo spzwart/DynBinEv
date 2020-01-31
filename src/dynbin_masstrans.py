@@ -16,12 +16,6 @@ def dmdt_acc(dmlossdt):
     dmacc = (alpha-1)*dmlossdt
     return dmacc[::-1]
 
-def dhdt_masstrans(h, mass, dmdtacc):
-    # BSE-like masstrans only (no loss)
-    mtot = mass.sum()
-    dhdt = -h * (dmdtacc[1] + dmdtacc[0])/mtot
-    return dhdt
-
 def dadt_masstrans_bse(a, e, mass, dmdtacc):
     # BSE-like, masstrans only (no loss)
     mtot = mass.sum()
@@ -156,6 +150,9 @@ def evolve_model(end_time, double_star, stars):
 
         orbital_elements = orbital_elements_from_binary(stars,
                                                         G=constants.G)
+
+        #etemp = orbital_elements[3]
+        #atemp = orbital_elements[2]
 
         dadt = dadt_masschange(atemp, stars.mass, dmdtloss+dmdtacc)
         dedt = dedt_masschange(etemp, stars.mass, dmdtloss+dmdtacc)
