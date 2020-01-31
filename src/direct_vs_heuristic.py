@@ -100,13 +100,18 @@ def dhdt_dadt_to_kick(stars, dhdt, dadt, dmdt, dt):
     # removing contribution from mass loss
     dadt_corrected = dadt + a * (dmdt[0] + dmdt[1]) / mtot
 
-    rdot_acc = 0.5 * dadt_corrected * constants.G * mtot / (a * a) - vth_acc * vth_mag
+    rdot_acc = 0.5 * dadt_corrected * constants.G * mtot / (a * a) - dhdt * vth_mag/r
     rdot_acc = rdot_acc / rdot_mag
 
     vth_kick = vth_acc * dt * vth_vec
     rdot_kick = rdot_acc * dt * rdot_vec
 
-    stars[1].velocity += vth_kick #+ rdot_kick
+    totkick = vth_kick+rdot_kick
+    kick0 = -stars.mass[1]/mtot * totkick
+    kick1 = stars.mass[0]/mtot * totkick
+
+    stars[0].velocity += kick0
+    stars[1].velocity += kick1
 
 
 def evolve_model(end_time, double_star, stars):
