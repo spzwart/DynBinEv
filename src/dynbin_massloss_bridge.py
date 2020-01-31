@@ -73,6 +73,7 @@ def evolve_model(end_time, double_star, stars):
         dmdt = mass_loss_rate(stars.mass)
         dadt = dadt_masschange(atemp, stars.mass, dmdt)
         dedt = dedt_masschange(etemp, stars.mass, dmdt)
+
         atemp = atemp + dadt*dt
         etemp = etemp + dedt*dt
         a_an.append(atemp)
