@@ -2,7 +2,6 @@
 from amuse.units import units, constants, nbody_system
 from amuse.ext.orbital_elements import new_binary_from_orbital_elements
 from amuse.ext.orbital_elements import orbital_elements_from_binary
-from amuse.ext.orbital_elements import orbital_elements_from_binary
 from amuse.community.hermite.interface import Hermite
 import numpy
 
@@ -38,19 +37,18 @@ def dedt_masstrans_bse(e, mass, dmdtacc):
     return dedt
 
 def dhdt_momentumchange(h, mass, dmdtacc):
-    mtot = mass.sum()
-    dhdt = -h * (dmdtacc[1] + dmdtacc[0])/mtot
+    dhdt = -h * (dmdtacc[1]/mass[1] + dmdtacc[0]/mass[0])
     return dhdt
 
 def dadt_momentumchange(a, e, mass, dmdtacc):
     # Assuming dVth1/V = -dm1/m1
-    dadt = - a*(dmdtacc[0]/mass[0] + dmdtacc[1]/mass[1]) * 2 * (1-e*e)**0.5
+    dadt = - a*(dmdtacc[0]/mass[0] + dmdtacc[1]/mass[1]) *2* (1- e*e)**0.5
     return dadt
 
 def dedt_momentumchange(e, mass, dmdtacc):
     # Assuming dVth1/V = -dm1/m1
     ome2 = 1-e*e
-    dedt = - (dmdtacc[0]/mass[0] + dmdtacc[1]/mass[1]) * ((ome2)**0.5 -1) * (ome2/e)
+    dedt = - (dmdtacc[0]/mass[0] + dmdtacc[1]/mass[1]) * ((1- e*e)**0.5 -1) * (ome2/e)
     return dedt
 
 def kick_from_accretion(stars, dmdtacc, dt):
@@ -77,7 +75,8 @@ def kick_from_accretion(stars, dmdtacc, dt):
     #print(kick0, kick1)
 
 
-def dhdt_dadt_to_kick(stars, dhdt, dadt, dt):
+def dhdt_dadt_to_kick(stars, dhdt, dadt, dmdt, dt):
+    stars.move_to_center()
     mtot = stars.mass.sum()
     pos = stars[1].position - stars[0].position
     vel = stars[1].velocity - stars[0].velocity
@@ -97,15 +96,16 @@ def dhdt_dadt_to_kick(stars, dhdt, dadt, dt):
     vth_mag = vth.length()
     vth_vec = vth/vth_mag
 
-    h = pos.cross(vel)
-    h_mag = h.length()
-    vth_acc = dhdt/h_mag * vth_mag
+    #h = pos.cross(vel)
+    #h_mag = h.length()
+    #vth_acc = dhdt/h_mag * vth_mag
+    vth_acc = dhdt / r
 
-    rdot_acc = 0.5*dadt*constants.G*mtot/(a*a) - vth_acc*vth_mag
+    # removing contribution from mass loss
+    dadt_corrected = dadt + a*(dmdt[0] + dmdt[1])/mtot
+
+    rdot_acc = 0.5*dadt_corrected*constants.G*mtot/(a*a) - vth_acc*vth_mag
     rdot_acc = rdot_acc/rdot_mag
-
-    com_pos = stars.center_of_mass()
-    com_vel = stars.center_of_mass_velocity()
 
     vth_kick = vth_acc * dt * vth_vec
     rdot_kick = rdot_acc * dt * rdot_vec
@@ -141,7 +141,8 @@ def evolve_model(end_time, double_star, stars):
     etemp = double_star.eccentricity
 
     a = [] | units.au
-    e = [] 
+    e = []
+    ome = []
     m1 = [] | units.MSun
     m2 = [] | units.MSun
     t = [] | units.yr
@@ -170,7 +171,7 @@ def evolve_model(end_time, double_star, stars):
         e_an.append(etemp)
 
         kick_from_accretion(stars, dmdtacc, dt)
-        #dhdt_dadt_to_kick(stars, dhdt, dadt, dt)
+        #dhdt_dadt_to_kick(stars, dhdt, dadt, dmdtloss+dmdtacc, dt)
 
         stars.mass += (dmdtloss + dmdtacc)* dt
 
@@ -178,6 +179,7 @@ def evolve_model(end_time, double_star, stars):
 
         a.append(orbital_elements[2])
         e.append(orbital_elements[3])
+        ome.append(orbital_elements[7])
         m1.append(stars[0].mass)
         m2.append(stars[1].mass)
         t.append(time)
@@ -186,24 +188,33 @@ def evolve_model(end_time, double_star, stars):
               "e=", e[-1],
               "m=", stars.mass.in_(units.MSun), end="\r")
     gravity.stop()
+
     from matplotlib import pyplot
-    fig, axis = pyplot.subplots(nrows=2, ncols=2, sharex=True)
-    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.RSun), label="nbody")
-    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.RSun), label="analytic")
+    pyplot.rc('text', usetex=True)
+    pyplot.rcParams.update({'font.size': 16})
+    fig, axis = pyplot.subplots(nrows=2, ncols=2, sharex=True, figsize=(10, 6))
+    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.RSun), label="nbody", lw=2)
+    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.RSun), label="analytic", lw=2)
     axis[0][0].set_ylabel("a [$R_\odot$]")
     axis[0][0].legend()
 
-    axis[0][1].plot(t.value_in(units.yr), m1.value_in(units.MSun), label="m1")
-    axis[0][1].plot(t.value_in(units.yr), m2.value_in(units.MSun), label="m2")
+    axis[0][1].plot(t.value_in(units.yr), m1.value_in(units.MSun), label="m1", lw=2)
+    axis[0][1].plot(t.value_in(units.yr), m2.value_in(units.MSun), label="m2", lw=2)
     axis[0][1].set_ylabel("M [$M_\odot$]")
+    axis[0][1].legend()
 
-    axis[1][1].plot(t.value_in(units.yr), e)
-    axis[1][1].plot(t.value_in(units.yr), e_an)
+    axis[1][1].plot(t.value_in(units.yr), e, lw=2)
+    axis[1][1].plot(t.value_in(units.yr), e_an, lw=2)
     axis[1][1].set_ylabel("e")
+
+    axis[1][0].plot(t.value_in(units.yr), ome, lw=2)
+    axis[1][0].set_ylabel("$\omega$")
 
     axis[1][1].set_xlabel("time [yr]")
     axis[1][0].set_xlabel("time [yr]")
-    pyplot.suptitle("mloss+macc+momentum change")
+
+    pyplot.tight_layout()
+    #pyplot.suptitle("mloss+macc+momentum change")
     pyplot.savefig("mloss_macc_momentum.png")
     pyplot.show()
 
