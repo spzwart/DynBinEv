@@ -208,7 +208,7 @@ def evolve_model(end_time, double_star, stars):
         print("time=", time.in_(units.yr),
               "a=", a[-1].in_(units.RSun),
               "e=", e[-1],
-              "m=", stars.mass.in_(units.MSun), end="\r")
+              "m=", stars.mass.in_(units.MSun), "end=\r")
     gravity.stop()
     gravity2.stop()
 
