@@ -66,7 +66,7 @@ def kick_from_accretion(stars, dmdtacc, dt):
     vth_mag = vth.length()
     vth_vec = vth / vth_mag
 
-    accth_mag = -v * dmdtacc / stars.mass
+    accth_mag = -vth_mag * dmdtacc / stars.mass
     kick0 = -vth_vec * accth_mag[0] * dt
     kick1 = vth_vec * accth_mag[1] * dt
 
@@ -100,15 +100,15 @@ def dhdt_dadt_to_kick(stars, dhdt, dadt, dmdt, dt):
     # removing contribution from mass loss
     dadt_corrected = dadt + a * (dmdt[0] + dmdt[1]) / mtot
 
-    rdot_acc = 0.5 * dadt_corrected * constants.G * mtot / (a * a) - dhdt * vth_mag/r
+    rdot_acc = 0.5 * dadt_corrected * constants.G * mtot / (a * a) - dhdt * vth_mag / r
     rdot_acc = rdot_acc / rdot_mag
 
     vth_kick = vth_acc * dt * vth_vec
     rdot_kick = rdot_acc * dt * rdot_vec
 
-    totkick = vth_kick+rdot_kick
-    kick0 = -stars.mass[1]/mtot * totkick
-    kick1 = stars.mass[0]/mtot * totkick
+    totkick = vth_kick + rdot_kick
+    kick0 = -stars.mass[1] / mtot * totkick
+    kick1 = stars.mass[0] / mtot * totkick
 
     stars[0].velocity += kick0
     stars[1].velocity += kick1
@@ -172,6 +172,8 @@ def evolve_model(end_time, double_star, stars):
                                                         G=constants.G)
         orbital_elements2 = orbital_elements_from_binary(stars2,
                                                          G=constants.G)
+        # etemp = orbital_elements[3]
+        # atemp = orbital_elements[2]
 
         dadt = dadt_masschange(atemp, stars.mass, dmdtloss + dmdtacc)
         dedt = dedt_masschange(etemp, stars.mass, dmdtloss + dmdtacc)
@@ -233,7 +235,7 @@ def evolve_model(end_time, double_star, stars):
     axis[1][1].set_ylabel("e")
 
     axis[1][0].plot(t.value_in(units.yr), ome, lw=2, label="nbody (direct)")
-    axis[1][0].plot(t.value_in(units.yr), ome2, lw=2, label="nbody (heuristic)")
+    axis[1][0].plot(t.value_in(units.yr), ome2, lw=2, ls="--", label="nbody (heuristic)")
     axis[1][0].set_ylabel("$\omega$ [degrees]")
 
     axis[1][1].set_xlabel("time [yr]")
