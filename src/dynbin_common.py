@@ -45,8 +45,12 @@ def make_binary_star(mprim, msec, semimajor_axis, eccentricity):
     stars.is_binary = False
     double_star.child1 = stars[0]
     double_star.child1.name = "primary"
+
     double_star.child2 = stars[1]
     double_star.child2.name = "secondary"
+
+    for star in stars:
+        star.radius = (star.mass.value_in(units.MSun) ** 0.8) | units.RSun
 
     return double_star, stars
 
@@ -66,4 +70,10 @@ def new_option_parser():
     result.add_option("-e", type="float",
                       dest="eccentricity", default=0.68,
                       help="eccentricity [%default]")
+    result.add_option("-k", type="float", nargs=2,
+                      dest="kaps", default=[0.14, 0.14],
+                      help="apsidal constant [%default]")
+    result.add_option("--tau", type="float", nargs=2,
+                      dest="taulag", default=[100, 100] | units.s, unit=units.s,
+                      help="timelag in seconds [%default]")
     return result
