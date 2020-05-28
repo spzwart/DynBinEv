@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from amuse.units import units, constants, nbody_system
+from amuse.io import write_set_to_file, read_set_from_file
 from amuse.ext.orbital_elements import new_binary_from_orbital_elements
 from amuse.ext.orbital_elements import orbital_elements_from_binary
 from amuse.ext.orbital_elements import orbital_elements_from_binary
@@ -20,6 +21,7 @@ def check_collision(stars):
     else: return False
 
 def kick_stars_tides(stars, dt):
+    stars.move_to_center()
     pos = stars[1].position - stars[0].position
     vel = stars[1].velocity - stars[0].velocity
 
@@ -30,8 +32,6 @@ def kick_stars_tides(stars, dt):
 
     inv_r = 1.0 / r
     inv_r_7 = inv_r**7
-    # k = 0
-    # j = 1
     r0_5 = stars[0].radius**5
     r1_5 = stars[1].radius**5
     m0_2 = stars[0].mass*stars[0].mass
@@ -58,6 +58,10 @@ def evolve_model(end_time, double_star, stars):
     converter = nbody_system.nbody_to_si(double_star.mass,
                                          double_star.semimajor_axis)
 
+    #time = 10.0017596364 | units.yr
+    #inname = "binstar_10.0017596364.hdf5"
+    #stars = read_set_from_file(inname, "hdf5")
+
     gravity = Hermite(converter)
     gravity.particles.add_particle(stars)
     to_stars = gravity.particles.new_channel_to(stars)
@@ -72,7 +76,7 @@ def evolve_model(end_time, double_star, stars):
     )
     print("Period =", period.as_string_in(units.yr))
 
-    dt = period/50.
+    dt = period/32.
 
     print("Mass loss timestep =", dt)
     print("Steps per period: = {:1.2f}".format(period/dt))
@@ -86,6 +90,9 @@ def evolve_model(end_time, double_star, stars):
                     stars[0].radius, stars[1].radius,
                     stars[0].kaps, stars[1].kaps,
                     stars[0].taulag, stars[1].taulag)
+
+
+    print(stars)
 
     a_an = [] | units.au
     e_an = []
@@ -128,10 +135,14 @@ def evolve_model(end_time, double_star, stars):
     gravity.stop()
     from matplotlib import pyplot
     fig, axis = pyplot.subplots(nrows=2, ncols=2, sharex=True)
-    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.RSun), label="nbody")
-    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.RSun), label="analytic")
+    axis[0][0].plot(t.value_in(units.yr), a.value_in(units.au), label="nbody")
+    axis[0][0].plot(t.value_in(units.yr), a_an.value_in(units.au), label="analytic")
     axis[0][0].set_ylabel("a [$R_\odot$]")
     axis[0][0].legend()
+
+    write_set_to_file(stars, "binstar_"+str(time.value_in(units.yr))+ ".hdf5", "hdf5")
+
+    numpy.savetxt("ae_{:d}.txt".format(numpy.random.randint(0, 1000)), numpy.vstack([t.value_in(units.yr), a.value_in(units.au), e]).T)
 
     axis[0][1].plot(t.value_in(units.yr), m.value_in(units.MSun))
     axis[0][1].set_ylabel("M [$M_\odot$]")
@@ -148,13 +159,27 @@ def evolve_model(end_time, double_star, stars):
 
 def main():
     o, arguments = new_option_parser().parse_args()
+
+    # override binary star parameters
+    o.semimajor_axis = 1 | units.au
+    o.eccentricity = 0.5
+    o.mprim = o.msec = 30 | units.MSun
+
     double_star, stars = make_binary_star(
         o.mprim, o.msec, o.semimajor_axis, o.eccentricity,
     )
     stars.kaps = o.kaps
     stars.taulag = o.taulag
 
-    end_time = 20.0 | units.yr
+    # override star parameters
+    stars.radius = 25 | units.RSun
+    stars[0].kaps = 0.15
+    stars[0].taulag = 1e4 | units.s
+    stars[1].kaps = 0.0
+    stars[1].taulag = 0.0 | units.s
+
+    # this circularizes in 5e4 yr
+    end_time = 1e4 | units.yr
     evolve_model(end_time, double_star, stars)
 
 
