@@ -1,7 +1,7 @@
 import numpy as np
 from amuse.units import constants, units
 from amuse.datamodel import Particles
-
+from comenv import CE_drag_averaged
 
 
 class BSEPairKicker():
@@ -21,6 +21,8 @@ class BSEPairKicker():
         self.common_envelope = common_envelope
         self.mass_accretion = mass_accretion
         self.kicks_per_orbit = kicks_per_orbit
+
+        self.comenv_phase = False
 
     def kick_pair(self, stellar_pair, dt):
         """
@@ -71,6 +73,7 @@ class BSEPairKicker():
         self.pair[0].velocity += kick0
         self.pair[1].velocity += kick1
 
+
     def kick_from_eccentric_tides(self):
         """
         Kick from tides due to eccentric orbit (Equilibrium tide model, Hut 1981)
@@ -98,4 +101,20 @@ class BSEPairKicker():
 
         self.pair[0].velocity += kick0
         self.pair[1].velocity += kick1
+
+
+    def begin_common_envelope(self, Ece, Tce):
+        """
+        Sets the beginning of the common envelope inspiral
+        :param Ece: energy lost during the common envelope phase
+        :param Tce: duration of the common envelope phase
+        :return:
+        """
+        mu = (self.pair[0].mass + self.pair[1].mass) * constants.G
+        Eps0 = 0.5 * self.v**2 - mu*self.inv_r
+        redmass = (self.pair[0].mass * self.pair[1].mass)/(self.pair[0].mass + self.pair[1].mass)
+        Eps_ce = Ece/redmass
+
+        self.Kce = CE_drag_averaged.K_from_eps(Eps0, Eps_ce, Tce, mu)
+        self.comenv_phase = True
 
