@@ -5,6 +5,16 @@ from amuse.units import units, constants
 from amuse.ext.orbital_elements import new_binary_from_orbital_elements
 
 
+def get_period(double_star):
+    P = (
+        2*numpy.pi
+        * (
+            double_star.semimajor_axis*double_star.semimajor_axis*double_star.semimajor_axis
+            / (constants.G*double_star.mass)
+        ).sqrt()
+    )
+    return P
+
 def mass_loss_rate(m):
     dmdt = -(1.e-6 | units.MSun/units.yr) * (m/(1.0 | units.MSun))**2
     return dmdt
@@ -55,20 +65,21 @@ def make_binary_star(mprim, msec, semimajor_axis, eccentricity):
     return double_star, stars
 
 
-def new_option_parser():
+def new_option_parser(a_default=10000|units.RSun, e_default=0.68,
+                      m_default=15|units.MSun, M_default=15|units.MSun):
     from amuse.units.optparse import OptionParser
     result = OptionParser()
     result.add_option("-M", unit=units.MSun, type="float",
-                      dest="mprim", default=25 | units.MSun,
+                      dest="mprim", default=M_default,
                       help="primary mass [%default]")
     result.add_option("-m", unit=units.MSun, type="float",
-                      dest="msec", default=15 | units.MSun,
+                      dest="msec", default=m_default,
                       help="secondary mass [%default]")
     result.add_option("-a", unit=units.RSun, type="float",
-                      dest="semimajor_axis", default=10000 | units.RSun,
+                      dest="semimajor_axis", default=a_default,
                       help="semi-major axis [%default]")
     result.add_option("-e", type="float",
-                      dest="eccentricity", default=0.68,
+                      dest="eccentricity", default=e_default,
                       help="eccentricity [%default]")
     result.add_option("-k", type="float", nargs=2,
                       dest="kaps", default=[0.14, 0.14],

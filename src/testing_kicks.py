@@ -109,6 +109,7 @@ def test_binary_evolution(a0=0.3|units.au, e0=0.6, m1=60|units.MSun, m2=40|units
     plot.plot(time, peri, label='peri BSE', c="blue", ls="-.")
     plot.set_xlabel('Time [yr]')
     plot.set_ylabel('R [RSun]')
+    plot.legend()
     plt.show()
 
 if __name__ == "__main__":
