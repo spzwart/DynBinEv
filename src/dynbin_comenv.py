@@ -12,15 +12,24 @@ from dynbin_common import (
 )
 
 
-def dadt_comenv(a, e, K):
+def dadt_comenv_k2(a, e, K):
     e2 = e * e
     da_dt = K / a * 2 * (1 + e2) / (1 - e2) ** 1.5
     return da_dt
 
 
-def dedt_comenv(a, e, K):
+def dedt_comenv_k2(a, e, K):
     e2 = e * e
     de_dt = K / (a * a) * 2 * e / (1 - e2) ** 0.5
+    return de_dt
+
+def dadt_comenv_k0(a, e, K):
+    da_dt = K * a * 2
+    return da_dt
+
+
+def dedt_comenv_k0(a, e, K):
+    de_dt = 0.0 * K
     return de_dt
 
 def kick_stars_comenv(stars, dt, K):
@@ -53,6 +62,21 @@ def kick_stars_comenv2(stars, dt, K, A):
     stars[0].velocity += -acc*dt * stars[1].mass/mtot
     stars[1].velocity += acc*dt * stars[0].mass/mtot
 
+
+def kick_stars_comenv3(stars, dt, K, A, vorb):
+    stars.move_to_center()
+    pos = stars[1].position - stars[0].position
+    vel = stars[1].velocity - stars[0].velocity
+
+    r = pos.length()
+    v = vel.length()
+    vvec = vel / v
+
+    acc = K/A * v/vorb*v * vvec
+    mtot = stars[0].mass + stars[1].mass
+
+    stars[0].velocity += -acc*dt * stars[1].mass/mtot
+    stars[1].velocity += acc*dt * stars[0].mass/mtot
 
 def K_from_eps(eps0, eps_ce, Tce, mu):
     epsf = eps0 + eps_ce
@@ -109,6 +133,9 @@ def evolve_model(end_time, double_star, stars):
     print("Avisc", Avisc.as_string_in(units.RSun ** 2))
     Rvisc = Avisc.sqrt() / (4 * constants.pi)
     print("Rvisc", Rvisc.as_string_in(units.RSun))
+
+    vorb = (mu / double_star.semimajor_axis).sqrt()
+
     ###### END COMMON ENVELOPE STUFF ###############
 
     collision = False
@@ -121,7 +148,7 @@ def evolve_model(end_time, double_star, stars):
         if not collision:
             gravity.evolve_model(time)
             to_stars.copy()
-            kick_stars_comenv2(stars, dt, Kce, Avisc)
+            kick_stars_comenv3(stars, dt, Kce, Avisc, vorb)
             from_stars.copy()
 
             from_stars.copy()
@@ -132,8 +159,8 @@ def evolve_model(end_time, double_star, stars):
             collision = check_collisions(stars)
 
         if atemp.number > 0:
-            dadt = dadt_comenv(atemp, etemp, Kce)
-            dedt = dedt_comenv(atemp, etemp, Kce)
+            dadt = dadt_comenv_k0(atemp, etemp, Kce/Avisc)
+            dedt = dedt_comenv_k0(atemp, etemp, Kce/Avisc)
 
             atemp = atemp + dadt*dt
             etemp = etemp + dedt*dt
