@@ -4,7 +4,26 @@ import numpy as np
 
 
 class CE_drag_averaged():
-    def __init__(self, eps0, eps_ce, Tce, mu):
+    def __init__(self, forceform="l1k2"):
+
+        self.forceform = forceform
+        if forceform == "l1k2":
+            self.da_dt = self.da_dt_l1k2
+            self.de_dt = self.de_dt_l1k2
+            self.K_from_eps = self.K_from_eps_l1k2
+            self.K_from_a = self.K_from_a_l1k2
+            self.at_zeroe = self.at_zeroe_l1k2
+        elif forceform == "l1k0":
+            self.da_dt = self.da_dt_l1k0
+            self.de_dt = self.de_dt_l1k0
+            #TODO
+            # self.K_from_eps = self.K_from_eps_l1k0
+            # self.K_from_a = self.K_from_a_l1k0
+            # self.at_zeroe = self.at_zeroe_l1k0
+        else:
+            raise ValueError("forceform option \"{:s}\" not found".format(forceform))
+
+    def initialize_integration(self, eps0, eps_ce, Tce, mu):
         self.eps0 = eps0
         self.eps_ce = eps_ce
         self.Tce = Tce
@@ -16,30 +35,40 @@ class CE_drag_averaged():
         self.af = mu / (2 * self.epsf)
 
     @staticmethod
-    def K_from_eps(eps0, eps_ce, Tce, mu):
+    def K_from_eps_l1k2(eps0, eps_ce, Tce, mu):
         epsf = eps0 + eps_ce
         K = mu ** 2 * (1 / epsf ** 2 - 1 / eps0 ** 2) / (16 * Tce)
         return K
 
     @staticmethod
-    def K_from_a(a0, af, Tce):
+    def K_from_a_l1k2(a0, af, Tce):
         K = (af ** 2 - a0 ** 2) / (4 * Tce)
         return K
 
     @staticmethod
-    def CE_da_dt(a, e, K):
+    def da_dt_l1k2(a, e, K):
         e2 = e * e
         da_dt = K / a * 2 * (1 + e2) / (1 - e2) ** 1.5
         return da_dt
 
     @staticmethod
-    def CE_de_dt(a, e, K):
+    def de_dt_l1k2(a, e, K):
         e2 = e * e
         de_dt = K / (a * a) * 2 * e / (1 - e2) ** 0.5
         return de_dt
 
     @staticmethod
-    def CE_at_zeroe(t, a0, K):
+    def da_dt_l1k0(a, e, K):
+        da_dt = K * a * 2
+        return da_dt
+
+    @staticmethod
+    def de_dt_l1k0(a, e, K):
+        de_dt = 0.0 * K
+        return de_dt
+
+    @staticmethod
+    def at_zeroe_l1k2(t, a0, K):
         at = (a0 ** 2 + 4 * K * t) ** 0.5
         return at
 
@@ -47,8 +76,8 @@ class CE_drag_averaged():
         a = y[0]
         e = y[1]
 
-        adot = self.CE_da_dt(a, e, self.K)
-        edot = self.CE_de_dt(a, e, self.K)
+        adot = self.da_dt(a, e, self.K)
+        edot = self.de_dt(a, e, self.K)
 
         return [adot, edot]
 
@@ -74,8 +103,10 @@ if __name__ == "__main__":
     Eps_ce = Eps1 - Eps0
     print("Eps_ce/Eps0", Eps_ce / Eps0)
 
-    Kce = CE_drag_averaged.K_from_eps(Eps0, Eps_ce, Tce, mu)
-    Kce_a = CE_drag_averaged.K_from_a(a0, a1, Tce)
+    CE_model_l1k2 = CE_drag_averaged(forceform="l1k2")
+
+    Kce = CE_model_l1k2.K_from_eps(Eps0, Eps_ce, Tce, mu)
+    Kce_a = CE_model_l1k2.K_from_a(a0, a1, Tce)
     print("Kce", Kce)
     Avisc = -Kce * Tce
     print("Avisc", Avisc.as_string_in(units.RSun ** 2))
@@ -90,16 +121,16 @@ if __name__ == "__main__":
     TCE_nb = conv.to_nbody(Tce).number
     a0_nb = conv.to_nbody(a0).number
 
-    CE_model = CE_drag_averaged(Eps0_nb, EpsCE_nb, TCE_nb, mu_nb)
-    print("K = ", CE_model.K)
+    CE_model_l1k2.initialize_integration(Eps0_nb, EpsCE_nb, TCE_nb, mu_nb)
+    print("K = ", CE_model_l1k2.K)
     y0 = [a0_nb, e0]
     tfin = TCE_nb
     tspan = np.linspace(0, 1000, 1000)
     tspan = conv.to_nbody(tspan | units.yr).number
-    t, y = CE_model.evolve(y0, tfin, None)
+    t, y = CE_model_l1k2.evolve(y0, tfin, None)
     a, e = y
 
-    analytic_a = CE_model.CE_at_zeroe(tspan, a0_nb, CE_model.K)
+    analytic_a = CE_model_l1k2.at_zeroe(tspan, a0_nb, CE_model_l1k2.K)
 
     from matplotlib import pyplot as plt
     import seaborn as sns

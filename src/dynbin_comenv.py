@@ -148,7 +148,7 @@ def evolve_model(end_time, double_star, stars):
         if not collision:
             gravity.evolve_model(time)
             to_stars.copy()
-            kick_stars_comenv3(stars, dt, Kce, Avisc, vorb)
+            kick_stars_comenv2(stars, dt, Kce, Avisc)
             from_stars.copy()
 
             from_stars.copy()

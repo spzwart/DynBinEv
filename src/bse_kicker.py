@@ -7,7 +7,7 @@ from comenv import CE_drag_averaged
 class BSEPairKicker():
 
     def __init__(self, kicks_per_orbit=100.0, tides=False, mass_loss=False,
-                 mass_accretion=False, common_envelope=False):
+                 mass_accretion=False, common_envelope=False, forceform_comenv="l1k2"):
         """
         Initialized the kicker
         :param kicks_per_orbit: needed to estimate the next optimal timestep #TODO
@@ -16,6 +16,7 @@ class BSEPairKicker():
         :param mass_accretion: enable/disable
         :param common_envelope: enable/disable
         """
+
         self.mass_loss = mass_loss
         self.tides = tides
         self.common_envelope = common_envelope
@@ -23,6 +24,7 @@ class BSEPairKicker():
         self.kicks_per_orbit = kicks_per_orbit
 
         self.comenv_phase = False
+        self.comenv_module = CE_drag_averaged(forceform=forceform_comenv)
 
     def kick_pair(self, stellar_pair, dt):
         """
@@ -31,6 +33,7 @@ class BSEPairKicker():
         :param dt: the timestep of the kick step
         :return:
         """
+
         self.pair = stellar_pair
         self.pos_com = stellar_pair.center_of_mass()
         self.vel_com = stellar_pair.center_of_mass_velocity()
@@ -41,6 +44,10 @@ class BSEPairKicker():
         if self.tides: self.kick_from_eccentric_tides()
 
     def calculate_useful_stuff(self):
+        """
+        Utility function, run once per timestep
+        """
+
         self.pos = self.pair[1].position - self.pair[0].position
         self.vel = self.pair[1].velocity - self.pair[0].velocity
 
@@ -115,6 +122,6 @@ class BSEPairKicker():
         redmass = (self.pair[0].mass * self.pair[1].mass)/(self.pair[0].mass + self.pair[1].mass)
         Eps_ce = Ece/redmass
 
-        self.Kce = CE_drag_averaged.K_from_eps(Eps0, Eps_ce, Tce, mu)
+        self.Kce = self.comenv_module.K_from_eps(Eps0, Eps_ce, Tce, mu)
         self.comenv_phase = True
 
