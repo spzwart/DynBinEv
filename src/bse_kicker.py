@@ -26,6 +26,10 @@ class BSEPairKicker():
         self.comenv_phase = False
         self.comenv_module = CE_drag_averaged(forceform=forceform_comenv)
 
+        # Parameters
+        self.wbeta = 1.0
+
+
     def kick_pair(self, stellar_pair, dt):
         """
         Kicks the pair of particle according to the enabled physical processes
@@ -70,10 +74,10 @@ class BSEPairKicker():
         Assuming dVth1/Vrel = -dm1/m1
 
         Particles need to have this attribute:
-        dmdt_acc: instantaneus mass accretion rate [mass/time]
+        dmdt_accr: instantaneus mass accretion rate [mass/time]
         """
 
-        accth_mag = -self.v * self.pair.dmdt_acc / self.pair.mass
+        accth_mag = -self.v * self.pair.dmdt_accr / self.pair.mass
         kick0 = -self.vth_vec * accth_mag[0] * self.dt
         kick1 = self.vth_vec * accth_mag[1] * self.dt
 
@@ -122,6 +126,16 @@ class BSEPairKicker():
         redmass = (self.pair[0].mass * self.pair[1].mass)/(self.pair[0].mass + self.pair[1].mass)
         Eps_ce = Ece/redmass
 
-        self.Kce = self.comenv_module.K_from_eps(Eps0, Eps_ce, Tce, mu)
+        self.C_ce = self.comenv_module.K_from_eps(Eps0, Eps_ce, Tce, mu)
         self.comenv_phase = True
+
+    def calculate_accreted_mass(self, donor, accretor):
+        vwind = 2*self.wbeta*donor.mass
+
+        accretor.dmdt_wind
+
+
+
+        donor.dmdt_accr = accreted_mass
+        pass
 

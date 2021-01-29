@@ -12,27 +12,27 @@ from dynbin_common import (
 )
 
 
-def dadt_comenv_k2(a, e, K):
+def dadt_comenv_k2(a, e, C):
     e2 = e * e
-    da_dt = K / a * 2 * (1 + e2) / (1 - e2) ** 1.5
+    da_dt = C / a * 2 * (1 + e2) / (1 - e2) ** 1.5
     return da_dt
 
 
-def dedt_comenv_k2(a, e, K):
+def dedt_comenv_k2(a, e, C):
     e2 = e * e
-    de_dt = K / (a * a) * 2 * e / (1 - e2) ** 0.5
+    de_dt = C / (a * a) * 2 * e / (1 - e2) ** 0.5
     return de_dt
 
-def dadt_comenv_k0(a, e, K):
-    da_dt = K * a * 2
+def dadt_comenv_k0(a, e, C):
+    da_dt = C * a * 2
     return da_dt
 
 
-def dedt_comenv_k0(a, e, K):
-    de_dt = 0.0 * K
+def dedt_comenv_k0(a, e, C):
+    de_dt = 0.0 * C
     return de_dt
 
-def kick_stars_comenv(stars, dt, K):
+def kick_stars_comenv(stars, dt, C):
     stars.move_to_center()
     pos = stars[1].position - stars[0].position
     vel = stars[1].velocity - stars[0].velocity
@@ -41,13 +41,13 @@ def kick_stars_comenv(stars, dt, K):
     v = vel.length()
     vvec = vel / v
 
-    acc = K/(r*r) * v * vvec
+    acc = C / (r * r) * v * vvec
     mtot = stars[0].mass + stars[1].mass
 
     stars[0].velocity += -acc*dt * stars[1].mass/mtot
     stars[1].velocity += acc*dt * stars[0].mass/mtot
 
-def kick_stars_comenv2(stars, dt, K, A):
+def kick_stars_comenv2(stars, dt, C, A):
     stars.move_to_center()
     pos = stars[1].position - stars[0].position
     vel = stars[1].velocity - stars[0].velocity
@@ -56,14 +56,14 @@ def kick_stars_comenv2(stars, dt, K, A):
     v = vel.length()
     vvec = vel / v
 
-    acc = K/A * v * vvec
+    acc = C / A * v * vvec
     mtot = stars[0].mass + stars[1].mass
 
     stars[0].velocity += -acc*dt * stars[1].mass/mtot
     stars[1].velocity += acc*dt * stars[0].mass/mtot
 
 
-def kick_stars_comenv3(stars, dt, K, A, vorb):
+def kick_stars_comenv3(stars, dt, C):
     stars.move_to_center()
     pos = stars[1].position - stars[0].position
     vel = stars[1].velocity - stars[0].velocity
@@ -72,16 +72,16 @@ def kick_stars_comenv3(stars, dt, K, A, vorb):
     v = vel.length()
     vvec = vel / v
 
-    acc = K/A * v/vorb*v * vvec
+    acc = -C * v * v * vvec
     mtot = stars[0].mass + stars[1].mass
 
     stars[0].velocity += -acc*dt * stars[1].mass/mtot
     stars[1].velocity += acc*dt * stars[0].mass/mtot
 
-def K_from_eps(eps0, eps_ce, Tce, mu):
+def C_from_eps(eps0, eps_ce, Tce, mu):
     epsf = eps0 + eps_ce
-    K = mu**2 * (1/epsf**2 -  1/eps0**2) / (16*Tce)
-    return K
+    C = mu**2 * (1/epsf**2 -  1/eps0**2) / (16*Tce)
+    return C
 
 
 def check_collisions(stars):
@@ -95,7 +95,7 @@ def check_collisions(stars):
 
 def evolve_model(end_time, double_star, stars):
     time = 0 | units.yr
-    dt = 0.05*end_time/1000.
+    dt = 0.01*end_time/1000.
 
     converter = nbody_system.nbody_to_si(double_star.mass,
                                          double_star.semimajor_axis)
@@ -127,14 +127,18 @@ def evolve_model(end_time, double_star, stars):
     print("Eps_ce/Eps0", Eps_ce / Eps0)
 
     Tce = 1000 | units.yr
-    Kce = K_from_eps(Eps0, Eps_ce, Tce, mu)
-    print("Kce", Kce)
-    Avisc = -Kce * Tce
+    C_ce = C_from_eps(Eps0, Eps_ce, Tce, mu)
+    print("C_ce", C_ce)
+    Avisc = -C_ce * Tce
     print("Avisc", Avisc.as_string_in(units.RSun ** 2))
     Rvisc = Avisc.sqrt() / (4 * constants.pi)
     print("Rvisc", Rvisc.as_string_in(units.RSun))
 
     vorb = (mu / double_star.semimajor_axis).sqrt()
+
+    #### l=2,k=0
+    Cfact_l2k0 = 1e-5 | 1/units.RSun
+    print("C:", Cfact_l2k0.as_string_in(1/units.RSun))
 
     ###### END COMMON ENVELOPE STUFF ###############
 
@@ -148,7 +152,7 @@ def evolve_model(end_time, double_star, stars):
         if not collision:
             gravity.evolve_model(time)
             to_stars.copy()
-            kick_stars_comenv2(stars, dt, Kce, Avisc)
+            kick_stars_comenv3(stars, dt, C=Cfact_l2k0)
             from_stars.copy()
 
             from_stars.copy()
@@ -159,13 +163,15 @@ def evolve_model(end_time, double_star, stars):
             collision = check_collisions(stars)
 
         if atemp.number > 0:
-            dadt = dadt_comenv_k0(atemp, etemp, Kce/Avisc)
-            dedt = dedt_comenv_k0(atemp, etemp, Kce/Avisc)
+            dadt = dadt_comenv_k0(atemp, etemp, C_ce/Avisc)
+            dedt = dedt_comenv_k0(atemp, etemp, C_ce/Avisc)
 
             atemp = atemp + dadt*dt
             etemp = etemp + dedt*dt
 
         if collision and atemp.number < 0: break
+
+        if orbital_elements[2] < final_a: break
 
         a_an.append(atemp)
         e_an.append(etemp)
@@ -188,6 +194,7 @@ def evolve_model(end_time, double_star, stars):
     axis[0].plot(t.value_in(units.yr), a.value_in(units.RSun), label="nbody k=0")
     axis[0].plot(t.value_in(units.yr), a_an.value_in(units.RSun), label="analytic")
     axis[0].set_ylabel("semimajor axis [$R_\odot$]")
+    axis[0].set_yscale("log")
     axis[0].legend()
 
     axis[1].plot(t.value_in(units.yr), e)
@@ -204,9 +211,10 @@ def evolve_model(end_time, double_star, stars):
 
 
 def main():
-    m1, m2 = 80 | units.MSun, 55 | units.MSun
+    #m1, m2 = 80 | units.MSun, 55 | units.MSun
+    m1, m2 = 15 | units.MSun, 15 | units.MSun
     a0 = 4000 | units.RSun
-    e0 = 0.9
+    e0 = 0.4
 
     o, arguments = new_option_parser(M_default=m1, m_default=m2,
                                      a_default=a0, e_default=e0).parse_args()
