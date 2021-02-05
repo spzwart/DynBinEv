@@ -57,6 +57,7 @@ class MacegaPhaseEvolve():
         self.e2 = e * e
         self.ome2 = 1 - self.e2
         self.cosnu = np.cos(nu)
+        self.sinnu = np.sin(nu)
         self.elfac = 1 + 2 * e * self.cosnu + self.e2
 
         adot = self.da_dt(a)
@@ -80,12 +81,12 @@ class MacegaPhaseEvolve():
 
     def de_dt_l2k0(self, a, e):
         edot = - self.C * self.mu ** 0.5
-        edot *= 1 / e * a ** -0.5 * self.ome2 ** 0.5 * self.elfac ** 0.5 * (self.e2 + 2 * e * self.cosnu)
+        edot *= 2 / e * a ** -0.5 * self.ome2 ** 0.5 * self.elfac ** 0.5 * (self.e2 + e * self.cosnu)
         return edot
 
     def dome_dt_l2k0(self, a, e):
-        omedot = - 2 * self.C * self.mu ** 0.5
-        omedot *= 1 / e * a ** -0.5 * self.ome2 ** -0.5 * self.elfac ** 0.5
+        omedot = - 2 * self.C * (self.mu/a) ** 0.5 * self.sinnu
+        omedot *= 1 / e * (self.elfac/self.ome2) ** 0.5
         return omedot
 
     def da_dt_l1k0(self, a):
@@ -94,12 +95,12 @@ class MacegaPhaseEvolve():
         return adot
 
     def de_dt_l1k0(self, a, e):
-        edot = - self.C
-        edot *= self.ome2 / e * (self.e2 + 2 * e * self.cosnu)
+        edot = - 2*self.C
+        edot *= self.ome2 / e * (self.e2 + e * self.cosnu)
         return edot
 
     def dome_dt_l1k0(self, a, e):
-        omedot = - 2 * self.C / e
+        omedot = - 2 * self.C / e * self.sinnu
         return omedot
 
     def evolve(self, y0, tfin, t_eval):

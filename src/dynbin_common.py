@@ -31,13 +31,14 @@ def dedt_masschange(e0, m0, dmdt):
     return dedt
 
 
-def make_binary_star(mprim, msec, semimajor_axis, eccentricity, argument_of_periapsis=360 | units.deg,):
+def make_binary_star(mprim, msec, semimajor_axis, eccentricity, argument_of_periapsis=360 | units.deg,true_anomaly=0|units.deg):
     double_star = Particle()
     double_star.is_binary = True
     double_star.mass = mprim + msec
     double_star.semimajor_axis = semimajor_axis
     double_star.eccentricity = eccentricity
     double_star.argument_of_periapsis = argument_of_periapsis
+    double_star.true_anomaly = true_anomaly
 
     period = (
         2*numpy.pi
@@ -53,7 +54,8 @@ def make_binary_star(mprim, msec, semimajor_axis, eccentricity, argument_of_peri
                                              semimajor_axis,
                                              eccentricity,
                                              G=constants.G,
-                                             argument_of_periapsis=argument_of_periapsis)
+                                             argument_of_periapsis=argument_of_periapsis,
+                                             true_anomaly=true_anomaly)
     stars.is_binary = False
     double_star.child1 = stars[0]
     double_star.child1.name = "primary"

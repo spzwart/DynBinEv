@@ -37,7 +37,7 @@ class MacegaKick():
         self.mass_unit = self.conv.to_si(1 | nbody_system.mass)
         print("Mass units:", self.mass_unit.as_string_in(units.MSun))
         self.dtkick = dtkick
-        self.dtkick_update = True
+        self.dtkick_update = dtkick_update
 
         Cunits = nbody_system.length ** (1 - l + k) * nbody_system.time ** (l - 2)
         self.Cunits = self.conv.to_si(Cunits).as_unit()
@@ -52,7 +52,7 @@ class MacegaKick():
             raise ValueError("forceform option l={:g}, k={:g} not found".format(l, k))
 
     def kick_stars_l2k0(self, stars, dt, C):
-        stars.move_to_center()
+        #stars.move_to_center()
         pos = stars[1].position - stars[0].position
         vel = stars[1].velocity - stars[0].velocity
 
@@ -67,7 +67,7 @@ class MacegaKick():
         stars[1].velocity += acc * dt * stars[0].mass / mtot
 
     def kick_stars_l1k0(self, stars, dt, C):
-        stars.move_to_center()
+        #stars.move_to_center()
         pos = stars[1].position - stars[0].position
         vel = stars[1].velocity - stars[0].velocity
 
@@ -81,11 +81,12 @@ class MacegaKick():
         stars[0].velocity += -acc * dt * stars[1].mass / mtot
         stars[1].velocity += acc * dt * stars[0].mass / mtot
 
-    def initialize_model(self, m1, m2, a0, e0, ome0, afin, C):
+    def initialize_model(self, m1, m2, a0, e0, ome0, nu0, afin, C):
 
         double_star, stars = make_binary_star(m1, m2,
                                               a0, e0,
-                                              argument_of_periapsis=ome0|units.rad)
+                                              argument_of_periapsis=ome0|units.rad,
+                                              true_anomaly=nu0|units.rad)
 
         self.stars = stars
         self.gravity = Hermite(self.conv)
@@ -122,6 +123,7 @@ class MacegaKick():
         a = [self.double_star.semimajor_axis.value_in(self.length_unit)]
         e = [self.double_star.eccentricity]
         ome = [self.double_star.argument_of_periapsis.value_in(units.rad)]
+        nu = [self.double_star.true_anomaly.value_in(units.rad)]
         t = [tstart.value_in(self.time_unit)]
         while time < tfin:
             time += dt
@@ -145,6 +147,7 @@ class MacegaKick():
             a.append(orbital_elements[2].value_in(self.length_unit))
             e.append(orbital_elements[3])
             ome.append(mod2pi(np.radians(orbital_elements[7])))
+            nu.append(mod2pi(np.radians(orbital_elements[4])))
             t.append(time.value_in(self.time_unit))
             print("time=", time.value_in(self.time_unit),
                   "a=", a[-1],
@@ -153,7 +156,7 @@ class MacegaKick():
 
         self.gravity.stop()
 
-        return t, a, e, ome
+        return t, a, e, ome, nu
 
 
 def main():
@@ -161,14 +164,15 @@ def main():
     a0 = 4000 | units.RSun
     a1 = 40 | units.RSun
     e0 = 0.4
-    ome = 2*np.pi
+    ome0 = 0.0
+    nu0 = np.pi
     C = 1e-5
 
     o, arguments = new_option_parser(M_default=m1, m_default=m2,
                                      a_default=a0, e_default=e0).parse_args()
 
     CEKickEvolve = MacegaKick(l=2, k=0, dtkick=0.05)
-    CEKickEvolve.initialize_model(o.mprim, o.msec, o.semimajor_axis, o.eccentricity, ome, afin=a1, C=C)
+    CEKickEvolve.initialize_model(o.mprim, o.msec, o.semimajor_axis, o.eccentricity, ome0, nu0, afin=a1, C=C)
 
     tfin = CEKickEvolve.Period0*200
     dtout = CEKickEvolve.Period0*0.01

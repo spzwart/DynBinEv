@@ -1,0 +1,5 @@
+# Finding nearest particles
+particles.nearest_neighbour(particles)
+particles.nearest_neighbour() 
+
+# Estimate non-interaction radius
