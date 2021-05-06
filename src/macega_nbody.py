@@ -26,6 +26,13 @@ def check_collisions(stars):
 
 class MacegaKick():
     def __init__(self, l=2, k=0, dtkick=0.01, dtkick_update=True):
+        """
+        Initi
+        :param l: exponent of velocity in the drag force
+        :param k: exponent of radius in drag force
+        :param dtkick: timestep between kicks, as fraction of binary periods
+        :param dtkick_update: dtkick as the binary shrinks, or keep the timestep constant
+        """
         self.l = l
         self.k = k
 
@@ -44,6 +51,12 @@ class MacegaKick():
         print("C units:", Cunits)
 
     def select_model(self, l, k):
+        """
+        Select model, so far only l=1,2 k=0 are added
+        :param l: exponent of velocity in the drag force
+        :param k: exponent of radius in drag force
+        :return:
+        """
         if k == 0 and l == 2:
             self.kick_stars = self.kick_stars_l2k0
         elif k == 0 and l == 1:
@@ -53,6 +66,7 @@ class MacegaKick():
 
     def kick_stars_l2k0(self, stars, dt, C):
         #stars.move_to_center()
+        vcom = stars.center_of_mass_velocity()
         pos = stars[1].position - stars[0].position
         vel = stars[1].velocity - stars[0].velocity
 
@@ -68,6 +82,7 @@ class MacegaKick():
 
     def kick_stars_l1k0(self, stars, dt, C):
         #stars.move_to_center()
+        vcom = stars.center_of_mass_velocity()
         pos = stars[1].position - stars[0].position
         vel = stars[1].velocity - stars[0].velocity
 
@@ -82,6 +97,18 @@ class MacegaKick():
         stars[1].velocity += acc * dt * stars[0].mass / mtot
 
     def initialize_model(self, m1, m2, a0, e0, ome0, nu0, afin, C):
+        """
+        Initializes the kick module
+        :param m1: mass star 1
+        :param m2: mass star 2
+        :param a0: semimajor axis
+        :param e0: eccentricity
+        :param ome0: argument of pericenter
+        :param nu0: phase
+        :param afin: final semimajor axis (to stop the simulation)
+        :param C: coefficient of the drag force, should have correct dimensionality depending on k,l
+        :return:
+        """
 
         double_star, stars = make_binary_star(m1, m2,
                                               a0, e0,
@@ -160,6 +187,10 @@ class MacegaKick():
 
 
 def main():
+    """
+    Tests the module and plots the evolution of the orbital parameters
+    :return:
+    """
     m1, m2 = 15 | units.MSun, 15 | units.MSun
     a0 = 4000 | units.RSun
     a1 = 40 | units.RSun
@@ -176,7 +207,7 @@ def main():
 
     tfin = CEKickEvolve.Period0*200
     dtout = CEKickEvolve.Period0*0.01
-    t, a, e, ome = CEKickEvolve.run_model(tfin, dtout)
+    t, a, e, ome, nu = CEKickEvolve.run_model(tfin, dtout)
 
     from matplotlib import pyplot
     import seaborn as sns
