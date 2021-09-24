@@ -142,7 +142,7 @@ class MacegaKick():
 
         print("C:", self.C)
 
-    def run_model(self, tfin, dt_out, tstart=0|units.yr):
+    def run_model(self, tfin, dt_out, tstart=0|units.yr, check_collisions=True):
         time = tstart
         dt = self.Period0 * self.dtkick
         dtout_next = time + dt_out
@@ -162,8 +162,9 @@ class MacegaKick():
             orbital_elements = orbital_elements_from_binary(self.stars,
                                                             G=constants.G)
 
-            collision = check_collisions(self.stars)
-            if collision: break
+            if check_collisions:
+                collision = check_collisions(self.stars)
+                if collision: break
             if orbital_elements[2] < self.afin: break
 
             if self.dtkick_update == True:
