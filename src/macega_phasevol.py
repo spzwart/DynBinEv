@@ -13,13 +13,32 @@ def mod2pi(f):
 
 
 class MacegaPhaseEvolve():
+    """
+    Evolves the set of ODEs in a, e, ome, and nu
+    """
+
     def C_from_X(X, mu, a, l, k):
+        """
+        Obtains C coeffiecient from dimensionless inspiral parameter X (\chi)
+        :param mu: standard gravitational parameter
+        :param a: initial semimajor axis
+        :param l: l exponent
+        :param k: k exponent
+        :return:
+        """
         C = X / np.pi * mu**(1-l/2) * a**(l/2+k-2)
         Cunit_L = 1 - l + k
         Cunit_T = l - 2
         return C, Cunit_L, Cunit_T
 
     def __init__(self, l=2, k=0, force_generic=False, evolveC=False):
+        """
+        Initializes rthe model
+        :param l: l exponent
+        :param k: k exponent
+        :param force_generic: use the equations for generic k and l
+        :param evolveC: have the coefficient C evolve with time, halting the inspiral
+        """
         self.l = l
         self.k = k
 
@@ -44,6 +63,12 @@ class MacegaPhaseEvolve():
         self.method = "DOP853"
 
     def select_model(self, l, k):
+        """
+        Select the inspiral model, only power-law for now
+        :param l: l exponent
+        :param k: k exponent
+        :return:
+        """
         if not self.force_generic and k == 0 and l == 2:
             self.da_dt = self.da_dt_l2k0
             self.de_dt = self.de_dt_l2k0
@@ -59,15 +84,30 @@ class MacegaPhaseEvolve():
             self.dome_dt = functools.partial(self.dome_dt_generic, l=l, k=k)
 
     def initialize_integration(self, C, mu):
+        """
+        Initializes C and mu
+        :param C: dimensional coefficient C
+        :param mu: standard gravitational parameter
+        :return:
+        """
         self.C0 = self.C = C
         self.mu = mu
 
     def calc_derivatives(self, t, y):
+        """
+        Calcualates derivatives
+        :param t: time, not used
+        :param y: state vector (a, e, ome, nu, g) g is the self-limiting function
+        :return:
+        """
         a = y[0]
         e = y[1]
         ome = y[2]
         nu = y[3]
         g = y[4]
+
+        if a < 0.0: return [0, 0, 0, 0, 0]
+        if a*(1-e) < 1e-8: return [0, 0, 0, 0, 0]
 
         self.C = self.C0 / g**(3-self.k)
 
@@ -94,7 +134,10 @@ class MacegaPhaseEvolve():
         n = (self.mu / (a * a * a)) ** 0.5
         opecosnu = 1 + e * self.cosnu
 
-        nudot = n * opecosnu * opecosnu / self.ome2 ** 1.5
+        try:
+            nudot = n * opecosnu * opecosnu / self.ome2 ** 1.5
+        except RuntimeWarning:
+            print(self.ome2)
         return nudot
 
     def da_dt_l2k0(self, a, e):

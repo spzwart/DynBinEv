@@ -137,7 +137,7 @@ class MacegaKick():
         vorb = (mu / double_star.semimajor_axis).sqrt()
 
         self.afin = afin
-        self.C = C | self.Cunits
+        self.C = C
         self.double_star = double_star
 
         print("C:", self.C)
