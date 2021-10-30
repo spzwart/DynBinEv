@@ -14,7 +14,8 @@ def mod2pi(f):
 
 class MacegaPhaseEvolve():
     """
-    Evolves the set of ODEs in a, e, ome, and nu
+    Evolves the set of ODEs in a, e, ome, and nu,
+    and optionally g, the envelope expansion factor
     """
 
     def C_from_X(X, mu, a, l, k):
@@ -31,20 +32,23 @@ class MacegaPhaseEvolve():
         Cunit_T = l - 2
         return C, Cunit_L, Cunit_T
 
-    def __init__(self, l=2, k=0, force_generic=False, evolveC=False):
+    def __init__(self, l=2, k=0, force_generic=False, evolve_g=False, limit_radius=None):
         """
-        Initializes rthe model
+        Initializes the model
         :param l: l exponent
         :param k: k exponent
         :param force_generic: use the equations for generic k and l
-        :param evolveC: have the coefficient C evolve with time, halting the inspiral
+        :param evolve_g: have the coefficient g evolve with time, halting the inspiral
+        :param limit_radius: limit the force to be non-zero only within this radius (simulates the finite size of envelope)
         """
         self.l = l
         self.k = k
 
         self.dnu_dt = self.dnu_dt_unperturbed
         self.force_generic = force_generic
-        self.evolveC = evolveC
+        self.evolve_g = evolve_g
+        self.limit_radius = limit_radius
+
         self.select_model(l, k)
 
         self.length_unit = 1 * units.RSun
@@ -106,8 +110,12 @@ class MacegaPhaseEvolve():
         nu = y[3]
         g = y[4]
 
-        if a < 0.0: return [0, 0, 0, 0, 0]
-        if a*(1-e) < 1e-8: return [0, 0, 0, 0, 0]
+        if self.limit_radius is not None:
+            r = a * (1 - e*e) / (1 + e*np.cos(nu))
+            if r > self.limit_radius:
+                return [0, 0, 0, 0, 0]
+
+        if a < 0.0 or a*(1-e) < 1e-8: return [0, 0, 0, 0, 0]
 
         self.C = self.C0 / g**(3-self.k)
 
@@ -123,7 +131,7 @@ class MacegaPhaseEvolve():
         nudot = self.dnu_dt(a, e) - omedot
         gdot = 0.0
 
-        if self.evolveC:
+        if self.evolve_g:
             Edot = self.mred * self.mu * adot / (2*a*a)
             gdot = - Edot / self.B0 * g*g
             pass
