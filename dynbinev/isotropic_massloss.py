@@ -15,5 +15,5 @@ class IsotropicMassLoss():
 
         dedt = - mdot_m * (e+cosnu)
 
-        domedt = - mdot_m * sinnu
+        domedt = - mdot_m * sinnu / e
         return dadt, dedt, domedt

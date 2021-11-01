@@ -13,11 +13,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 import seaborn as sns
 
-class PerturbativeEquationTest():
+class PerturbativeEvolution():
     """
     Evolves the set of ODEs in a, e, ome, and nu,
     """
-
     def dnudt(a, e, m1, m2, nu):
         one_m_e2 = 1 - e*e
         mu = m1 + m2
@@ -51,16 +50,18 @@ class PerturbativeEquationTest():
         :param y: state vector (m1, m2, a, e, i, ome, Ome, nu)
         :return:
         """
+        ### Input values need to be plain scalars in N-body units (G=1)
+        ### TODO: Make it accept AMUSE quantity
         m1, m2, a, e, i, ome, Ome, nu = y
 
         dydt = np.zeros(8)
 
-        dnudt = PerturbativeEquationTest.dnudt(a, e, m1, m2, nu)
+        dnudt = PerturbativeEvolution.dnudt(a, e, m1, m2, nu)
         dm1dt = self.m1dot
         dm2dt = self.m2dot
 
         if self.isotropic_mass_loss:
-            dadt, dedt, domedt = IsotropicMassLoss.orbital_elements_evolution(m1, m2, a, e, nu, self.m1dot, self.m2dot)
+            dadt, dedt, domedt = IsotropicMassLoss.orbital_elements_evolution(m1, m2, a, e, nu, dm1dt, dm2dt)
             dydt[st.a] += dadt
             dydt[st.e] += dedt
             dydt[st.ome] += domedt
@@ -124,7 +125,7 @@ def test_perturbative_evol():
     dm1dt_nb = conv.to_nbody(-1e-1 | units.MSun / units.yr).number
     dm2dt_nb = conv.to_nbody(-1e-1 | units.MSun / units.yr).number
 
-    PertEvolve = PerturbativeEquationTest()
+    PertEvolve = PerturbativeEvolution()
     PertEvolve.select_model(isotropic_mass_loss=True)
     PertEvolve.set_mass_loss(dm1dt_nb, dm2dt_nb)
 
@@ -174,7 +175,7 @@ def test_perturbative_evol():
     # plt.savefig("averaged_eccentric_integrated_vs_analytic.pdf")
 
 
-class NbodyTest():
+class NbodyEvolution():
     def __init__(self, dtkick=0.01, dtkick_update=True):
         """
         Initialization
@@ -292,7 +293,7 @@ def test_nbody_evol():
     dm1dt = -1e-1 | units.MSun / units.yr
     dm2dt = -1e-1 | units.MSun / units.yr
 
-    NbodyEvolve = NbodyTest(dtkick=0.05)
+    NbodyEvolve = NbodyEvolution(dtkick=0.05)
     NbodyEvolve.initialize_model(m1_0, m2_0, a0, e0, ome0, nu0, afin=afin)
     NbodyEvolve.set_mass_loss(dm1dt, dm2dt)
 
@@ -334,6 +335,106 @@ def test_nbody_evol():
     plt.subplots_adjust(hspace=0.0)
     plt.show()
 
+def test_compare_nbody_perturbative():
+    m1_0, m2_0 = 80 | units.MSun, 55 | units.MSun
+    a0 = 4000 | units.RSun
+    e0 = 0.1
+    i0 = 0.0
+    ome0 = np.pi
+    Ome0 = 0.0
+    nu0 = np.pi
+
+    afin = 40 | units.RSun
+    dm1dt = -0.5e-1 | units.MSun / units.yr
+    dm2dt = -0.5e-1 | units.MSun / units.yr
+
+    mu0 = (m1_0 + m2_0) * constants.G
+
+    Period0 = 2 * np.pi * (a0 * a0 * a0 / mu0) ** 0.5
+    print("Period0 =", Period0.value_in(units.yr))
+
+    conv = nbody_system.nbody_to_si(1 | units.RSun, 1 | units.yr)
+    to_MSun = conv.to_si(1 | nbody_system.mass).value_in(units.MSun)
+
+    a0_nb = conv.to_nbody(a0).number
+    afin_nb = conv.to_nbody(afin).number
+    m1_0_nb = conv.to_nbody(m1_0).number
+    m2_0_nb = conv.to_nbody(m2_0).number
+    Period0_nb = conv.to_nbody(Period0).number
+    dm1dt_nb = conv.to_nbody(dm1dt).number
+    dm2dt_nb = conv.to_nbody(dm2dt).number
+
+    tfin_in_periods = 50
+    dtout_in_periods = 0.01
+
+    PertEvolve = PerturbativeEvolution()
+    PertEvolve.select_model(isotropic_mass_loss=True)
+    PertEvolve.set_mass_loss(dm1dt_nb, dm2dt_nb)
+
+    y0 = [m1_0_nb, m2_0_nb, a0_nb, e0, i0, ome0, Ome0, nu0]
+
+    tfin = Period0_nb * tfin_in_periods
+    dt_out = Period0_nb * dtout_in_periods
+    t_p, y = PertEvolve.evolve_until(y0, tfin, afin=afin_nb, dt_out=dt_out)
+    m1_nb, m2_nb, a_p, e_p, i_p, ome_p, Ome_p, nu_p = y
+    m1_p, m2_p = m1_nb * to_MSun, m2_nb * to_MSun
+
+    NbodyEvolve = NbodyEvolution(dtkick=0.05)
+    NbodyEvolve.initialize_model(m1_0, m2_0, a0, e0, ome0, nu0, afin=afin)
+    NbodyEvolve.set_mass_loss(dm1dt, dm2dt)
+
+    tfin = NbodyEvolve.Period0 * tfin_in_periods
+    dtout = NbodyEvolve.Period0 * dtout_in_periods
+    t_n, a_n, e_n, ome_n, nu_n, m1_n, m2_n = NbodyEvolve.run_model(tfin, dtout)
+
+    ####
+    # PLOTTING
+    ####
+    sns.set(font_scale=1.33)
+    sns.set_style("ticks")
+
+    f, ax = plt.subplots(nrows=5, sharex=True, figsize=(15, 10))
+
+    ax[0].plot(t_p, a_p, lw=4, label="Perturbative", alpha=0.66)
+    ax[0].plot(t_n, a_n, lw=4, label="N-body", alpha=0.66)
+    ax[0].set_ylabel("semimajor axis [RSun]")
+    ax[0].axhline(a0.value_in(units.RSun), c="black", ls="--")
+    ax[0].axhline(afin.value_in(units.RSun), c="red", ls="--")
+
+    ax[0].set_yscale("log")
+    ax[1].plot(t_p, e_p, lw=2, alpha=0.66, label="Perturbative")
+    ax[1].plot(t_n, e_n, lw=2, alpha=0.66, label="N-body")
+    ax[1].set_ylabel("eccentricity")
+    ax[1].set_xlabel("time [yr]")
+    ax[1].set_ylim(bottom=0)
+
+    ax[2].plot(t_p, ome_p, lw=2, alpha=0.66, label="Perturbative")
+    ax[2].plot(t_n, ome_n, lw=2, alpha=0.66, label="N-body")
+    ax[2].set_ylabel("omega")
+    ax[2].set_xlabel("time [yr]")
+    #ax[2].set_ylim(bottom=0, top=2 * np.pi)
+
+    ax[3].plot(t_p, nu_p, lw=2, alpha=0.66, label="Perturbative")
+    ax[3].plot(t_n, nu_n, lw=2, alpha=0.66, label="N-body")
+    ax[3].set_ylabel("nu")
+    ax[3].set_ylim(bottom=0, top=2 * np.pi)
+
+    ax[4].plot(t_p, m1_p, lw=2, c="tab:blue", alpha=0.66, label="m1, Perturbative")
+    ax[4].plot(t_p, m2_p, lw=2, c="tab:orange", alpha=0.66, label="m2, Perturbative")
+    ax[4].plot(t_n, m1_n, lw=2, c="tab:cyan", alpha=0.66, label="m1, N-body")
+    ax[4].plot(t_n, m2_n, lw=2, c="tab:red", alpha=0.66, label="m2, N-body")
+    ax[4].set_ylabel("mass [MSun]")
+    ax[4].set_xlabel("time [yr]")
+
+    for axx in ax:
+        axx.grid()
+        axx.legend()
+
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.0)
+    plt.show()
+
 if __name__ == "__main__":
     #test_perturbative_evol()
-    test_nbody_evol()
+    #test_nbody_evol()
+    test_compare_nbody_perturbative()
