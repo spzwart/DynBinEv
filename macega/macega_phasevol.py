@@ -110,12 +110,7 @@ class MacegaPhaseEvolve():
         nu = y[3]
         g = y[4]
 
-        if self.limit_radius is not None:
-            r = a * (1 - e*e) / (1 + e*np.cos(nu))
-            if r > self.limit_radius:
-                return [0, 0, 0, 0, 0]
-
-        if a < 0.0 or a*(1-e) < 1e-8: return [0, 0, 0, 0, 0]
+        if a < 0.0 or a*(1-e) < 1e-8: return [0.0, 0.0, 0.0, 0.0, 0.0]
 
         self.C = self.C0 / g**(3-self.k)
 
@@ -124,6 +119,11 @@ class MacegaPhaseEvolve():
         self.cosnu = np.cos(nu)
         self.sinnu = np.sin(nu)
         self.elfac = 1 + 2 * e * self.cosnu + self.e2
+
+        if self.limit_radius is not None:
+            r = a * (1 - e*e) / (1 + e*np.cos(nu))
+            if r > self.limit_radius:
+                return [0.0, 0.0, 0.0, self.dnu_dt(a, e), 0.0]
 
         adot = self.da_dt(a, e)
         edot = self.de_dt(a, e)
@@ -134,6 +134,7 @@ class MacegaPhaseEvolve():
         if self.evolve_g:
             Edot = self.mred * self.mu * adot / (2*a*a)
             gdot = - Edot / self.B0 * g*g
+            gdot = min(gdot, 1e6)
             pass
 
         return [adot, edot, omedot, nudot, gdot]
@@ -259,9 +260,10 @@ class MacegaPhaseEvolve():
 
         firstDerivs = self.calc_derivatives(0.0, self.y0)
         adot = firstDerivs[0]
-        tdecay = a0_nb / adot
-        secularfactor = Period0_nb / tdecay
-        print("a/adot = {:g} Periods".format(secularfactor))
+        if adot != 0.0:
+            tdecay = a0_nb / adot
+            secularfactor = Period0_nb / tdecay
+            print("a/adot = {:g} Periods".format(secularfactor))
 
     def run_system(self, tfin, dt_out):
         t, y = self.evolve_until(self.y0, tfin.value_in(self.time_unit), afin=self.a1, dt_out=dt_out.value_in(self.time_unit))
