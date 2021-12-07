@@ -122,7 +122,7 @@ class MacegaPhaseEvolve():
 
         if self.limit_radius is not None:
             r = a * (1 - e*e) / (1 + e*np.cos(nu))
-            if r > self.limit_radius:
+            if r > self.limit_radius*g:
                 return [0.0, 0.0, 0.0, self.dnu_dt(a, e), 0.0]
 
         adot = self.da_dt(a, e)
@@ -254,7 +254,7 @@ class MacegaPhaseEvolve():
         if B0 is None:
             self.B0 = self.m1*self.m1/self.a1/lambd
             print("B0:", self.B0)
-        else: self.B0 = B0
+        else: self.B0 = B0.value_in(self.length_unit**2 * self.time_unit**-2 * self.mass_unit)
 
         self.y0 = [a0_nb, e0, ome0, nu0, g0]
 

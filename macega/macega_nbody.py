@@ -4,7 +4,7 @@ from amuse.ext.orbital_elements import orbital_elements_from_binary
 from amuse.community.hermite.interface import Hermite
 import numpy as np
 
-from dynbin_common import make_binary_star, new_option_parser, get_period
+from macega_common import make_binary_star, new_option_parser, get_period
 
 
 def mod2pi(f):
