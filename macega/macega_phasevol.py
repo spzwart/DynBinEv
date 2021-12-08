@@ -32,7 +32,7 @@ class MacegaPhaseEvolve():
         Cunit_T = l - 2
         return C, Cunit_L, Cunit_T
 
-    def __init__(self, l=2, k=0, force_generic=False, evolve_g=False, limit_radius=None):
+    def __init__(self, l=2, k=0, force_generic=False, evolve_g=False, limit_radius=None, mute=False):
         """
         Initializes the model
         :param l: l exponent
@@ -48,6 +48,7 @@ class MacegaPhaseEvolve():
         self.force_generic = force_generic
         self.evolve_g = evolve_g
         self.limit_radius = limit_radius
+        self.mute = mute
 
         self.select_model(l, k)
 
@@ -55,14 +56,14 @@ class MacegaPhaseEvolve():
         self.time_unit = 1 * units.yr
         self.conv = nbody_system.nbody_to_si(self.length_unit, self.time_unit)
         self.mass_unit = self.conv.to_si(1 | nbody_system.mass).as_unit()
-        print("Mass units:", (1|self.mass_unit).as_string_in(units.MSun))
+        if not self.mute: print("Mass units:", (1|self.mass_unit).as_string_in(units.MSun))
 
         Cunits = nbody_system.length ** (1 - l + k) * nbody_system.time ** (l - 2)
         try:
             self.Cunits = self.conv.to_si(Cunits).as_unit()
         except AttributeError:
             self.Cunits = units.none
-        print("C units:", Cunits)
+        if not self.mute: print("C units:", Cunits)
 
         self.method = "DOP853"
 
@@ -82,7 +83,7 @@ class MacegaPhaseEvolve():
             self.de_dt = self.de_dt_l1k0
             self.dome_dt = self.dome_dt_l1k0
         else:
-            print("Using generic functions")
+            if not self.mute: print("Using generic functions")
             self.da_dt = functools.partial(self.da_dt_generic, l=l, k=k)
             self.de_dt = functools.partial(self.de_dt_generic, l=l, k=k)
             self.dome_dt = functools.partial(self.dome_dt_generic, l=l, k=k)
@@ -126,8 +127,8 @@ class MacegaPhaseEvolve():
                 return [0.0, 0.0, 0.0, self.dnu_dt(a, e), 0.0]
 
         adot = self.da_dt(a, e)
-        edot = self.de_dt(a, e)
-        omedot = self.dome_dt(a, e)
+        edot = self.de_dt(a, e) if e > 1e-10 else 0.0
+        omedot = self.dome_dt(a, e) if e > 1e-10 else 0.0
         nudot = self.dnu_dt(a, e) - omedot
         gdot = 0.0
 
@@ -202,21 +203,26 @@ class MacegaPhaseEvolve():
         tsols = [tstart]
         ysols = [y0]
         y = y0
+        def stop_afin(t, y):
+            return y[0] - afin
+        stop_afin.terminal = True
+
         while time < tfin:
             nexttime = time + dt_out
-            sol = solve_ivp(self.calc_derivatives, [time, nexttime], y, t_eval=[nexttime], method=self.method)
+            sol = solve_ivp(self.calc_derivatives, [time, nexttime], y, t_eval=[nexttime], method=self.method, events=stop_afin)
 
-            if sol.y[0] < afin:
-                print("Reached final semimajor axis, halting integration")
+            if len(sol.t_events[0]) == 0:
+                y = sol.y.flatten()
+                y[2] = mod2pi(y[2])
+                y[3] = mod2pi(y[3])
+
+                tsols.append(sol.t.item())
+                ysols.append(y)
+                time = nexttime
+            else:
+                tsols.append(sol.t_events[0].item())
+                ysols.append(sol.y_events[0].flatten())
                 break
-
-            y = sol.y.flatten()
-            y[2] = mod2pi(y[2])
-            y[3] = mod2pi(y[3])
-
-            tsols.append(sol.t.item())
-            ysols.append(y)
-            time = nexttime
 
         return tsols, np.vstack(ysols).T
 
@@ -228,16 +234,16 @@ class MacegaPhaseEvolve():
 
         if not np.isscalar(C) and C.is_scalar():
             self.C0 = self.C = C.value_in(self.Cunits)
-            print("C = {:s}".format(C.as_string_in(self.Cunits)))
+            if not self.mute: print("C = {:s}".format(C.as_string_in(self.Cunits)))
         else:
             self.C0 = self.C = C #| self.Cunits
-            print("C =", C, "in", self.Cunits)
+            if not self.mute: print("C =", C, "in", self.Cunits)
 
         self.Period0 = 2 * np.pi * (a0 * a0 * a0 / mu) ** 0.5
-        print("Period0 =", self.Period0.as_string_in(units.yr))
+        if not self.mute: print("Period0 =", self.Period0.as_string_in(units.yr))
 
         Eps_ce = Eps1 - Eps0
-        print("Eps_ce/Eps0", Eps_ce / Eps0)
+        if not self.mute: print("Eps_ce/Eps0", Eps_ce / Eps0)
 
         a0_nb = a0.value_in(self.length_unit)
         a1_nb = a1.value_in(self.length_unit)
@@ -253,7 +259,7 @@ class MacegaPhaseEvolve():
 
         if B0 is None:
             self.B0 = self.m1*self.m1/self.a1/lambd
-            print("B0:", self.B0)
+            if not self.mute: print("B0:", self.B0)
         else: self.B0 = B0.value_in(self.length_unit**2 * self.time_unit**-2 * self.mass_unit)
 
         self.y0 = [a0_nb, e0, ome0, nu0, g0]
@@ -263,7 +269,7 @@ class MacegaPhaseEvolve():
         if adot != 0.0:
             tdecay = a0_nb / adot
             secularfactor = Period0_nb / tdecay
-            print("a/adot = {:g} Periods".format(secularfactor))
+            if not self.mute: print("a/adot = {:g} Periods".format(secularfactor))
 
     def run_system(self, tfin, dt_out):
         t, y = self.evolve_until(self.y0, tfin.value_in(self.time_unit), afin=self.a1, dt_out=dt_out.value_in(self.time_unit))
