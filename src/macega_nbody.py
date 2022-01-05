@@ -14,6 +14,7 @@ def mod2pi(f):
         f -= 2 * np.pi
     return f
 
+
 def check_collisions(stars):
     pos = stars[1].position - stars[0].position
     r = pos.length()
@@ -24,14 +25,22 @@ def check_collisions(stars):
     else:
         return False
 
+
 class MacegaKick():
-    def __init__(self, l=2, k=0, dtkick=0.01, dtkick_update=True):
+    def __init__(
+            self,
+            l=2,
+            k=0,
+            dtkick=0.01,
+            dtkick_update=True,
+    ):
         """
         Initi
         :param l: exponent of velocity in the drag force
         :param k: exponent of radius in drag force
         :param dtkick: timestep between kicks, as fraction of binary periods
-        :param dtkick_update: dtkick as the binary shrinks, or keep the timestep constant
+        :param dtkick_update: dtkick as the binary shrinks, or keep the
+        timestep constant
         """
         self.l = l
         self.k = k
@@ -46,7 +55,7 @@ class MacegaKick():
         self.dtkick = dtkick
         self.dtkick_update = dtkick_update
 
-        Cunits = nbody_system.length ** (1 - l + k) * nbody_system.time ** (l - 2)
+        Cunits = nbody_system.length**(1 - l + k) * nbody_system.time**(l - 2)
         self.Cunits = self.conv.to_si(Cunits).as_unit()
         print("C units:", Cunits)
 
@@ -62,31 +71,32 @@ class MacegaKick():
         elif k == 0 and l == 1:
             self.kick_stars = self.kick_stars_l1k0
         else:
-            raise ValueError("forceform option l={:g}, k={:g} not found".format(l, k))
+            raise ValueError(f"forceform option l={l}, k={k} not found")
 
     def kick_stars_l2k0(self, stars, dt, C):
-        #stars.move_to_center()
-        vcom = stars.center_of_mass_velocity()
-        pos = stars[1].position - stars[0].position
+        # stars.move_to_center()
+        # vcom = stars.center_of_mass_velocity()
+        # pos = stars[1].position - stars[0].position
         vel = stars[1].velocity - stars[0].velocity
 
-        r = pos.length()
+        # r = pos.length()
         v = vel.length()
         vvec = vel / v
 
-        acc = -C * v * v * vvec
+        acc = (-C | self.Cunits) * v * v * vvec  # FIXME
+        print(acc.unit)
         mtot = stars[0].mass + stars[1].mass
 
         stars[0].velocity += -acc * dt * stars[1].mass / mtot
         stars[1].velocity += acc * dt * stars[0].mass / mtot
 
     def kick_stars_l1k0(self, stars, dt, C):
-        #stars.move_to_center()
-        vcom = stars.center_of_mass_velocity()
-        pos = stars[1].position - stars[0].position
+        # stars.move_to_center()
+        # vcom = stars.center_of_mass_velocity()
+        # pos = stars[1].position - stars[0].position
         vel = stars[1].velocity - stars[0].velocity
 
-        r = pos.length()
+        # r = pos.length()
         v = vel.length()
         vvec = vel / v
 
@@ -106,14 +116,16 @@ class MacegaKick():
         :param ome0: argument of pericenter
         :param nu0: phase
         :param afin: final semimajor axis (to stop the simulation)
-        :param C: coefficient of the drag force, should have correct dimensionality depending on k,l
+        :param C: coefficient of the drag force, should have correct
+        dimensionality depending on k,l
         :return:
         """
 
-        double_star, stars = make_binary_star(m1, m2,
-                                              a0, e0,
-                                              argument_of_periapsis=ome0|units.rad,
-                                              true_anomaly=nu0|units.rad)
+        double_star, stars = make_binary_star(
+            m1, m2, a0, e0,
+            argument_of_periapsis=ome0 | units.rad,
+            true_anomaly=nu0 | units.rad
+        )
 
         self.stars = stars
         self.gravity = Hermite(self.conv)
@@ -129,12 +141,13 @@ class MacegaKick():
         Eps0 = mu / (2 * double_star.semimajor_axis)
         Eps1 = mu / (2 * afin)
 
-        # Eps_ce should come from alpha lambda model, but we just fix the final semimajor axis here for simplicity
+        # Eps_ce should come from alpha lambda model, but we just fix the final
+        # semimajor axis here for simplicity
         Eps_ce = Eps1 - Eps0
         print("Eps_ce/Eps0", Eps_ce / Eps0)
 
-        Tce = 1000 | units.yr
-        vorb = (mu / double_star.semimajor_axis).sqrt()
+        # Tce = 1000 | units.yr
+        # vorb = (mu / double_star.semimajor_axis).sqrt()
 
         self.afin = afin
         self.C = C
@@ -142,10 +155,13 @@ class MacegaKick():
 
         print("C:", self.C)
 
-    def run_model(self, tfin, dt_out, tstart=0|units.yr, check_collisions=True):
+    def run_model(
+        self, tfin, dt_out, tstart=0 | units.yr,
+        check_collisions=False  # FIXME
+    ):
         time = tstart
         dt = self.Period0 * self.dtkick
-        dtout_next = time + dt_out
+        # dtout_next = time + dt_out
 
         a = [self.double_star.semimajor_axis.value_in(self.length_unit)]
         e = [self.double_star.eccentricity]
@@ -159,17 +175,24 @@ class MacegaKick():
             self.kick_stars(self.stars, dt, C=self.C)
             self.from_stars.copy()
 
-            orbital_elements = orbital_elements_from_binary(self.stars,
-                                                            G=constants.G)
+            orbital_elements = orbital_elements_from_binary(
+                self.stars,
+                G=constants.G
+            )
 
             if check_collisions:
                 collision = check_collisions(self.stars)
-                if collision: break
-            if orbital_elements[2] < self.afin: break
+                if collision:
+                    break
+            if orbital_elements[2] < self.afin:
+                break
 
-            if self.dtkick_update == True:
-                Period = 2 * np.pi * (orbital_elements[2] * orbital_elements[2] * orbital_elements[2] /
-                                      (constants.G * self.stars.mass.sum())).sqrt()
+            if self.dtkick_update is True:
+                Period = 2 * np.pi * (
+                    orbital_elements[2] * orbital_elements[2]
+                    * orbital_elements[2]
+                    / (constants.G * self.stars.mass.sum())
+                ).sqrt()
                 dt = Period*self.dtkick
 
             a.append(orbital_elements[2].value_in(self.length_unit))
@@ -204,7 +227,10 @@ def main():
                                      a_default=a0, e_default=e0).parse_args()
 
     CEKickEvolve = MacegaKick(l=2, k=0, dtkick=0.05)
-    CEKickEvolve.initialize_model(o.mprim, o.msec, o.semimajor_axis, o.eccentricity, ome0, nu0, afin=a1, C=C)
+    CEKickEvolve.initialize_model(
+        o.mprim, o.msec, o.semimajor_axis, o.eccentricity, ome0, nu0, afin=a1,
+        C=C
+    )
 
     tfin = CEKickEvolve.Period0*200
     dtout = CEKickEvolve.Period0*0.01
