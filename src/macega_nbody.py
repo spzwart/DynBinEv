@@ -83,8 +83,7 @@ class MacegaKick():
         v = vel.length()
         vvec = vel / v
 
-        acc = (-C | self.Cunits) * v * v * vvec  # FIXME
-        print(acc.unit)
+        acc = (-C | self.Cunits) * v * v * vvec
         mtot = stars[0].mass + stars[1].mass
 
         stars[0].velocity += -acc * dt * stars[1].mass / mtot
