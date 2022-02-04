@@ -58,8 +58,11 @@ class TripleSystemWithCE:
         self.time_unit = 1 * time_unit
         self.conv = nbody_system.nbody_to_si(self.length_unit, self.time_unit)
 
-    def make_triple(self, m1, m2, m3, a1, a2, e1=0.0, e2=0.0, ome1=0.0|units.deg, ome2=0.0|units.deg,
-                    Ome1=0.0|units.deg, i_mut=0.0|units.deg, nu1=0.0|units.deg, nu2=0.0|units.deg):
+    def make_triple(
+        self, m1, m2, m3, a1, a2, e1=0.0, e2=0.0, ome1=0.0 | units.deg,
+        ome2=0.0 | units.deg, Ome1=0.0 | units.deg, i_mut=0.0 | units.deg,
+        nu1=0.0 | units.deg, nu2=0.0 | units.deg
+    ):
 
         if 1 - cos(i_mut) < 1e-15:
             i1 = i2 = 0.0
@@ -126,9 +129,12 @@ class TripleSystemWithCE:
 
         self.stars = self.triplesys
         self.gravity = Hermite(self.conv)
-        self.gravity.particles.add_particle(self.stars)
-        self.to_stars = self.gravity.particles.new_channel_to(self.stars)
-        self.from_stars = self.stars.new_channel_to(self.gravity.particles)
+        self.evolution = BSE()
+        self.gravity.particles.add_particles(self.stars)
+        self.evolution.particles.add_particles(self.stars)
+        self.grav_to_stars = self.gravity.particles.new_channel_to(self.stars)
+        self.evo_to_stars = self.evolution.particles.new_channel_to(self.stars)
+        self.grav_from_stars = self.stars.new_channel_to(self.gravity.particles)
 
     def run_model(self, tfin, dt_out, dt_interaction=None, tstart=0|units.yr):
         time = tstart
@@ -148,12 +154,15 @@ class TripleSystemWithCE:
         while time < tfin:
             time += dt_interaction
             self.gravity.evolve_model(time)
-            self.to_stars.copy()
-            self.from_stars.copy()
+            self.evolution.evolve_model(time)
+            self.grav_to_stars.copy()
+            self.evo_to_stars.copy_attributes(["mass", "radius"])
+            self.grav_from_stars.copy()
 
             if time > dtout_next:
-                inn_orb, out_orb = get_orbit_of_triple(self.stars, inner1=self.inner1, inner2=self.inner2,
-                                                       outer=self.outer)
+                inn_orb, out_orb = get_orbit_of_triple(
+                    self.stars, inner1=self.inner1, inner2=self.inner2,
+                    outer=self.outer)
                 t.append(time.value_in(self.time_unit))
                 a1.append(inn_orb[0].value_in(units.RSun))
                 e1.append(inn_orb[1])
