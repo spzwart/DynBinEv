@@ -26,6 +26,22 @@ def check_collisions(stars):
         return False
 
 
+# KickStars function
+def kick_star(
+    dt,
+    list_of_stellar_pairs=[],
+    l=2,
+    k=0,
+):
+    c = some_constant_with_unit
+    Cunits = nbody_system.length**(1 - l + k) * nbody_system.time**(l - 2)
+    return
+    
+def find_stellar_pairs():
+    # use AMUSE's find binaries function
+
+    return
+
 class MacegaKick():
     def __init__(
             self,
