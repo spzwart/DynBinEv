@@ -7,8 +7,9 @@ from amuse.units import units, nbody_system, constants
 import numpy as np
 from amuse.units.trigo import cos, sin, arccos, arctan2
 from amuse.community.hermite.interface import Hermite
-from amuse.community.bse.interface import BSE
+from amuse.community.sse.interface import SSE
 from amuse.datamodel import Particles, Particle
+import matplotlib.pyplot as plt
 
 
 def i1_i2_from_imut(m1, m2, m3, a1, a2, e1, e2, imut):
@@ -32,7 +33,7 @@ def get_orbit_of_triple(triplesys, inner1=0, inner2=1, outer=2):
     inner_pos_rel = triplesys[inner1].position - triplesys[inner2].position
     inner_vel_rel = triplesys[inner1].velocity - triplesys[inner2].velocity
     inner_mass = triplesys[inner1].mass + triplesys[inner2].mass
-    
+
     inner_orb = get_orbital_elements_from_arrays(inner_pos_rel, inner_vel_rel, inner_mass, G=constants.G)
 
     inner_pos_com = (triplesys[inner1].position*triplesys[inner1].mass + triplesys[inner2].position*triplesys[inner2].mass) / inner_mass
@@ -42,6 +43,14 @@ def get_orbit_of_triple(triplesys, inner1=0, inner2=1, outer=2):
     outer_vel_rel = inner_vel_com - triplesys[outer].velocity
 
     outer_orb = get_orbital_elements_from_arrays(outer_pos_rel, outer_vel_rel, inner_mass + triplesys[outer].mass, G=constants.G)
+
+    # Mutual inclination
+    #Linn = inner_pos_rel.cross(inner_vel_rel)
+    #Lout = outer_pos_rel.cross(outer_vel_rel)
+    #CosNorm = Linn.dot(Lout) / (Linn.length() * Lout.length())
+    #i_mut = np.arccos(CosNorm)
+    #print(np.degrees(i_mut))
+
 
     # Better formatting
     outer_orb = [x[0]for x in outer_orb]
@@ -119,24 +128,30 @@ class TripleSystemWithCE:
         print("Inner orbit:\nsemi={}, ecc={}, nu={}, inc={}, ome={}, Ome={}".format(*inn_orb))
         print("Outer orbit:\nsemi={}, ecc={}, nu={}, inc={}, ome={}, Ome={}".format(*out_orb))
         print("P1={}\nP2={}".format(Period1.as_string_in(units.yr), Period2.as_string_in(units.yr)))
+        print("i1={}\ni2={}".format(i1.as_string_in(units.deg), i2.as_string_in(units.deg)))
+
+        i_mut = arccos(cos(out_orb[3])*cos(inn_orb[3]) + cos(out_orb[4]-inn_orb[4])*sin(out_orb[3])*sin(inn_orb[3]))
+        print("i_mut", i_mut.as_string_in(units.deg))
 
         return triplesys
 
 
     def initialize_simulation(self):
-        # Add stellar radii with BSE
+        # Add stellar radii with SSE
         #TODO
 
         self.stars = self.triplesys
         self.gravity = Hermite(self.conv)
-        self.evolution = BSE()
+        self.evolution = SSE()
         self.gravity.particles.add_particles(self.stars)
         self.evolution.particles.add_particles(self.stars)
         self.grav_to_stars = self.gravity.particles.new_channel_to(self.stars)
         self.evo_to_stars = self.evolution.particles.new_channel_to(self.stars)
         self.grav_from_stars = self.stars.new_channel_to(self.gravity.particles)
 
-    def run_model(self, tfin, dt_out, dt_interaction=None, tstart=0|units.yr):
+        print(self.stars)
+
+    def run_model(self, tfin, dt_out, dt_interaction=None, tstart=0|units.yr, no_stevo=True):
         time = tstart
         dtout_next = time + dt_out
 
@@ -149,15 +164,16 @@ class TripleSystemWithCE:
         e1 = [inn_orb[1]]
         a2 = [out_orb[0].value_in(units.RSun)]
         e2 = [out_orb[1]]
-        i_mut = [cos(out_orb[3])*cos(inn_orb[3]) + cos(out_orb[5]-inn_orb[5])*sin(out_orb[3])*sin(inn_orb[3])]
+        i_mut = [arccos(cos(out_orb[3])*cos(inn_orb[3]) + cos(out_orb[4]-inn_orb[4])*sin(out_orb[3])*sin(inn_orb[3])).value_in(units.deg)]
         t = [tstart.value_in(self.time_unit)]
         while time < tfin:
             time += dt_interaction
             self.gravity.evolve_model(time)
             self.evolution.evolve_model(time)
             self.grav_to_stars.copy()
-            self.evo_to_stars.copy_attributes(["mass", "radius"])
-            self.grav_from_stars.copy()
+            if not no_stevo:
+                self.evo_to_stars.copy_attributes(["mass", "radius"])
+                self.grav_from_stars.copy()
 
             if time > dtout_next:
                 inn_orb, out_orb = get_orbit_of_triple(
@@ -168,13 +184,13 @@ class TripleSystemWithCE:
                 e1.append(inn_orb[1])
                 a2.append(out_orb[0].value_in(units.RSun))
                 e2.append(out_orb[1])
-                i_mut.append(cos(out_orb[3]) * cos(inn_orb[3]) + cos(out_orb[5] - inn_orb[5]) * sin(out_orb[3]) * sin(inn_orb[3]))
+                i_mut.append(arccos(cos(out_orb[3])*cos(inn_orb[3]) + cos(out_orb[4]-inn_orb[4])*sin(out_orb[3])*sin(inn_orb[3])).value_in(units.deg))
                 dtout_next = time + dt_out
 
             # Check collisions
             #TODO
 
-            print("time=", time.value_in(self.time_unit), end="\r")
+            print("time=", time.as_string_in(self.time_unit), end="\r")
 
         self.gravity.stop()
 
@@ -182,9 +198,25 @@ class TripleSystemWithCE:
 
         return data
 
+def plot_data(data):
+    t = data[0,:]
+    a1 = data[1,:]
+    e1 = data[2,:]
+    i_mut = data[5,:]
+
+    f, ax = plt.subplots(3,1)
+    ax[0].plot(t, a1)
+    ax[1].plot(t, e1)
+    ax[2].plot(t, i_mut)
+    ax[2].set_xlabel("time [yr]")
+    ax[2].set_ylabel("inclination [deg]")
+    ax[1].set_ylabel("eccentricity")
+    ax[0].set_ylabel("semimajor axis")
+    plt.show()
 
 if "__main__" == __name__:
     TriSys = TripleSystemWithCE()
     TriSys.make_triple(m1=110|units.MSun, m2=30|units.MSun, m3=30|units.MSun, a1=1|units.au, a2=25|units.au, i_mut=90|units.deg, e1=0.1, e2=0.2)
     TriSys.initialize_simulation()
-    TriSys.run_model(tfin=100|units.yr, dt_out=5|units.yr)
+    dataplot = TriSys.run_model(tfin=10000|units.yr, dt_out=10|units.yr)
+    plot_data(dataplot)
