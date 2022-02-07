@@ -185,5 +185,6 @@ class TripleSystemWithCE:
 
 if "__main__" == __name__:
     TriSys = TripleSystemWithCE()
-    TriSys.make_triple(m1=1|units.MSun, m2=2|units.MSun, m3=3|units.MSun, a1=1|units.au, a2=10|units.au, i_mut=90|units.deg)
-    #TriSys.run_model(tfin=)
+    TriSys.make_triple(m1=110|units.MSun, m2=30|units.MSun, m3=30|units.MSun, a1=1|units.au, a2=25|units.au, i_mut=90|units.deg, e1=0.1, e2=0.2)
+    TriSys.initialize_simulation()
+    TriSys.run_model(tfin=100|units.yr, dt_out=5|units.yr)
