@@ -6,10 +6,12 @@ from amuse.ext.orbital_elements import new_binary_from_orbital_elements, rel_pos
 from amuse.units import units, nbody_system, constants
 import numpy as np
 from amuse.units.trigo import cos, sin, arccos, arctan2
+from amuse.community.huayno.interface import Huayno
 from amuse.community.hermite.interface import Hermite
 from amuse.community.sse.interface import SSE
 from amuse.datamodel import Particles, Particle
 import matplotlib.pyplot as plt
+from dynbin_kick import kick_stars_l2k0, C_from_X, period_from_binary
 
 
 def i1_i2_from_imut(m1, m2, m3, a1, a2, e1, e2, imut):
@@ -142,21 +144,18 @@ class TripleSystemWithCE:
 
         self.stars = self.triplesys
         self.gravity = Hermite(self.conv)
+        self.gravity.parameters.dt_param = 0.01
         self.evolution = SSE()
         self.gravity.particles.add_particles(self.stars)
         self.evolution.particles.add_particles(self.stars)
         self.grav_to_stars = self.gravity.particles.new_channel_to(self.stars)
         self.evo_to_stars = self.evolution.particles.new_channel_to(self.stars)
         self.grav_from_stars = self.stars.new_channel_to(self.gravity.particles)
+        self.evo_to_stars.copy_attributes(["mass", "radius", "core_radius"])
 
-        print(self.stars)
-
-    def run_model(self, tfin, dt_out, dt_interaction=None, tstart=0|units.yr, no_stevo=True):
+    def run_model(self, tfin, dt_out, dt_interaction_over_P1=None, tstart=0 | units.yr, no_stevo=True, C=None):
         time = tstart
         dtout_next = time + dt_out
-
-        if dt_interaction is None:
-            dt_interaction = dt_out
 
         inn_orb, out_orb = get_orbit_of_triple(self.stars, inner1=self.inner1, inner2=self.inner2, outer=self.outer)
 
@@ -166,13 +165,25 @@ class TripleSystemWithCE:
         e2 = [out_orb[1]]
         i_mut = [arccos(cos(out_orb[3])*cos(inn_orb[3]) + cos(out_orb[4]-inn_orb[4])*sin(out_orb[3])*sin(inn_orb[3])).value_in(units.deg)]
         t = [tstart.value_in(self.time_unit)]
+        R1 = [self.stars[0].radius.value_in(units.RSun)]
+        R1c = [self.stars[0].core_radius.value_in(units.RSun)]
+        R2 = [self.stars[1].radius.value_in(units.RSun)]
+        R2c = [self.stars[1].core_radius.value_in(units.RSun)]
+        E0 = self.stars.potential_energy() + self.stars.kinetic_energy()
+        if dt_interaction_over_P1 is None:
+            dt_interaction = dt_out
+        else:
+            CE_binary = self.stars[[self.inner1, self.inner2]]
+            period = period_from_binary(CE_binary).as_quantity_in(units.yr)
+            dt_interaction = dt_interaction_over_P1 * period
+
         while time < tfin:
             time += dt_interaction
             self.gravity.evolve_model(time)
-            self.evolution.evolve_model(time)
             self.grav_to_stars.copy()
             if not no_stevo:
-                self.evo_to_stars.copy_attributes(["mass", "radius"])
+                self.evolution.evolve_model(time)
+                self.evo_to_stars.copy_attributes(["mass", "radius", "core_radius"])
                 self.grav_from_stars.copy()
 
             if time > dtout_next:
@@ -184,17 +195,35 @@ class TripleSystemWithCE:
                 e1.append(inn_orb[1])
                 a2.append(out_orb[0].value_in(units.RSun))
                 e2.append(out_orb[1])
+                R1.append(self.stars[0].radius.value_in(units.RSun))
+                R1c.append(self.stars[0].core_radius.value_in(units.RSun))
+                R2.append(self.stars[1].radius.value_in(units.RSun))
+                R2c.append(self.stars[1].core_radius.value_in(units.RSun))
                 i_mut.append(arccos(cos(out_orb[3])*cos(inn_orb[3]) + cos(out_orb[4]-inn_orb[4])*sin(out_orb[3])*sin(inn_orb[3])).value_in(units.deg))
                 dtout_next = time + dt_out
 
-            # Check collisions
-            #TODO
+            if C is not None:
+                CE_binary = self.stars[[self.inner1,self.inner2]]
+                period = period_from_binary(CE_binary).as_quantity_in(units.yr)
+                sumrad = CE_binary.radius.sum()
+                sep = (CE_binary[0].position - CE_binary[1].position).length()
+                dt_interaction = dt_interaction_over_P1 * period
+                if sep < sumrad:
+                    kick_stars_l2k0(CE_binary[0], CE_binary[1], dt_interaction, C)
+                    self.grav_from_stars.copy()
+
+                # Check collisions
+                if sep < 1|units.RSun:
+                    break
 
             print("time=", time.as_string_in(self.time_unit), end="\r")
 
+        E = self.stars.potential_energy() + self.stars.kinetic_energy()
+        print("Delta E / E =", (E-E0)/E0)
+
         self.gravity.stop()
 
-        data = np.array((t, a1, e1, a2, e2, i_mut))
+        data = np.array((t, a1, e1, a2, e2, i_mut, R1, R1c, R2, R2c))
 
         return data
 
@@ -203,20 +232,41 @@ def plot_data(data):
     a1 = data[1,:]
     e1 = data[2,:]
     i_mut = data[5,:]
+    R1 = data[6,:]
+    R2 = data[8,:]
+    R1c = data[7,:]
+    R2c = data[9,:]
 
-    f, ax = plt.subplots(3,1)
+    f, ax = plt.subplots(4,1)
     ax[0].plot(t, a1)
-    ax[1].plot(t, e1)
-    ax[2].plot(t, i_mut)
-    ax[2].set_xlabel("time [yr]")
-    ax[2].set_ylabel("inclination [deg]")
-    ax[1].set_ylabel("eccentricity")
     ax[0].set_ylabel("semimajor axis")
+    ax[1].plot(t, e1)
+    ax[1].set_ylabel("eccentricity")
+    ax[2].plot(t, i_mut)
+    ax[2].set_ylabel("inclination [deg]")
+    ax[3].plot(t, a1*(1-e1), ls="-", label="separation")
+    ax[3].legend()
+    ax[3].plot(t, R1+R2, label="$R_1 + R_2$")
+    ax[3].plot(t, R1c+R2c, label="$R_{1,\\rm c} + R_{2,\\rm c}$", ls=":")
+    ax[2].set_ylabel("r [R$_\odot$]")
+    ax[3].set_xlabel("time [yr]")
+    ax[3].set_yscale("log")
+
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.0)
+
     plt.show()
 
 if "__main__" == __name__:
     TriSys = TripleSystemWithCE()
-    TriSys.make_triple(m1=110|units.MSun, m2=30|units.MSun, m3=30|units.MSun, a1=1|units.au, a2=25|units.au, i_mut=90|units.deg, e1=0.1, e2=0.2)
+    a1 = 1 | units.au
+    a2 = 25 | units.au
+    m1 = 110 | units.MSun
+    m2 = m3 = 30 | units.MSun
+    TriSys.make_triple(m1=m1, m2=m2, m3=m3, a1=a1, a2=a2, i_mut=90|units.deg, e1=0.1, e2=0.2)
     TriSys.initialize_simulation()
-    dataplot = TriSys.run_model(tfin=10000|units.yr, dt_out=10|units.yr)
+    X = 0.02
+    C, C_UL, C_UT = C_from_X(X, (m1+m2)*constants.G, a1, l=2, k=0)
+
+    dataplot = TriSys.run_model(tfin=2000|units.yr, dt_out=10|units.yr, no_stevo=False, C=C, dt_interaction_over_P1=0.1)
     plot_data(dataplot)
