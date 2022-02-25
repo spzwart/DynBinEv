@@ -177,6 +177,7 @@ class TripleSystemWithCE:
             period = period_from_binary(CE_binary).as_quantity_in(units.yr)
             dt_interaction = dt_interaction_over_P1 * period
 
+        rsep = rperi = sumrad = 0.0
         while time < tfin:
             time += dt_interaction
             self.gravity.evolve_model(time)
@@ -204,19 +205,21 @@ class TripleSystemWithCE:
 
             if C is not None:
                 CE_binary = self.stars[[self.inner1,self.inner2]]
+                rsep = (CE_binary[0].position - CE_binary[1].position).length()
+                # Check collisions
+                if rsep < 1|units.RSun:
+                    break
+
                 period = period_from_binary(CE_binary).as_quantity_in(units.yr)
                 sumrad = CE_binary.radius.sum()
-                sep = (CE_binary[0].position - CE_binary[1].position).length()
                 dt_interaction = dt_interaction_over_P1 * period
-                if sep < sumrad:
+                if rsep < sumrad:
                     kick_stars_l2k0(CE_binary[0], CE_binary[1], dt_interaction, C)
                     self.grav_from_stars.copy()
 
-                # Check collisions
-                if sep < 1|units.RSun:
-                    break
 
-            print("time=", time.as_string_in(self.time_unit), end="\r")
+
+            print("time=", time.as_string_in(self.time_unit), "rsep/sumrad=", rsep/sumrad, end="\r")
 
         E = self.stars.potential_energy() + self.stars.kinetic_energy()
         print("Delta E / E =", (E-E0)/E0)
@@ -263,10 +266,10 @@ if "__main__" == __name__:
     a2 = 25 | units.au
     m1 = 110 | units.MSun
     m2 = m3 = 30 | units.MSun
-    TriSys.make_triple(m1=m1, m2=m2, m3=m3, a1=a1, a2=a2, i_mut=90|units.deg, e1=0.1, e2=0.2)
+    TriSys.make_triple(m1=m1, m2=m2, m3=m3, a1=a1, a2=a2, i_mut=90|units.deg, e1=0.9, e2=0.2)
     TriSys.initialize_simulation()
-    X = 0.02
+    X = 0.005
     C, C_UL, C_UT = C_from_X(X, (m1+m2)*constants.G, a1, l=2, k=0)
 
-    dataplot = TriSys.run_model(tfin=2000|units.yr, dt_out=10|units.yr, no_stevo=False, C=C, dt_interaction_over_P1=0.1)
+    dataplot = TriSys.run_model(tfin=100|units.yr, dt_out=10|units.yr, no_stevo=False, C=C, dt_interaction_over_P1=0.1)
     plot_data(dataplot)
