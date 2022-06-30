@@ -206,12 +206,14 @@ class MacegaPhaseEvolve():
         def stop_afin(t, y):
             return y[0] - afin
         stop_afin.terminal = True
+        def stop_e1(t, y):
+            return (1-1e-8)-y[1]
+        stop_e1.terminal = True
 
         while time < tfin:
             nexttime = time + dt_out
-            sol = solve_ivp(self.calc_derivatives, [time, nexttime], y, t_eval=[nexttime], method=self.method, events=stop_afin)
-
-            if len(sol.t_events[0]) == 0:
+            sol = solve_ivp(self.calc_derivatives, [time, nexttime], y, t_eval=[nexttime], method=self.method, events=[stop_afin,stop_e1])
+            if (len(sol.t_events[0]) == 0) and (len(sol.t_events[1]) == 0):
                 y = sol.y.flatten()
                 y[2] = mod2pi(y[2])
                 y[3] = mod2pi(y[3])
@@ -219,9 +221,12 @@ class MacegaPhaseEvolve():
                 tsols.append(sol.t.item())
                 ysols.append(y)
                 time = nexttime
-            else:
+            elif len(sol.t_events[0]) != 0:
                 tsols.append(sol.t_events[0].item())
                 ysols.append(sol.y_events[0].flatten())
+            elif len(sol.t_events[1]) != 0:
+                tsols.append(sol.t_events[1].item())
+                ysols.append(sol.y_events[1].flatten())
                 break
 
         return tsols, np.vstack(ysols).T
